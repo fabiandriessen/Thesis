@@ -127,3 +127,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+RWS_data/netherlands-latest.osm.pbf
