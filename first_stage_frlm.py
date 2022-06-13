@@ -1,6 +1,8 @@
 import networkx as nx
 import pandas as pd
 import itertools
+import pickle
+
 
 #this script is copied from: https://stackoverflow.com/questions/50634876/how-can-you-remove-superset-lists-from-a-list-of-lists-in-python
 def get_minimal_subsets(sets):
@@ -31,24 +33,41 @@ def first_stage_frlm(G, r, OD):
         [(node_1, node_2, flow_12),(node_1, node_3, flow_13),(node_2, node_3, flow_23)]
         """
     # get data from graph in list format
-    node_list = [i for i in G.nodes]
-    edge_list = [i for i in G.edges]
-    edge_list_w = []
+    # node_list = [i for i in G.nodes]
+    # edge_list = [i for i in G.edges]
+    # edge_list_w = []
+    harbour_exits = pickle.load( open("data/harbour_exits.p", "rb") )
 
     # Now also create weighted edge list in the format [(begin, start, weight),(..), etc.]
-    for origin, destination in edge_list:
-        edge_list_w.append((origin, destination, G.get_edge_data(origin, destination)['length_m']))
+    # for origin, destination in edge_list:
+    #     edge_list_w.append((origin, destination, G.get_edge_data(origin, destination)['length_m']))
 
     # collect paths to refuel and path lengths in dicts, first create empty dicts
     paths = {}
     path_lengths = {}
+    harbours ={}
 
     # dict to collect eq and fq values
     dict_eq_fq = {'q': [], 'e_q': [], 'f_q': []}
 
+    # create list with all nodes in keys and combinations
+    # nodes_in_comb =[]
+
     # generate shortest paths for al origin destinations
     for origin, destination, flow in OD:
-        paths[(origin, destination)] = nx.dijkstra_path(G, origin, destination)
+        # nodes_in_comb += [origin, destination]
+        paths[(origin, destination)] = nx.dijkstra_path(G, origin, destination, weight='length_m')
+        # print('All nodes on route', paths[(origin, destination)])
+        # paths[(origin, destination)] = list(set(paths[(origin, destination)]).intersection(harbour_exits))
+
+        # Put harbours on each route in list
+        harbours[(origin, destination)] = []
+        for node in paths[(origin, destination)]:
+            if node in harbour_exits:
+                harbours[(origin, destination)].append(node)
+        print('Harbours on route dict=', harbours)
+
+        # store path length for shortcut later on and to be able to check with range
         path_lengths[(origin, destination)] = nx.dijkstra_path_length(G, origin, destination, weight='length_m')
 
         # fill dict for eq_fq dataframe
@@ -56,24 +75,24 @@ def first_stage_frlm(G, r, OD):
         dict_eq_fq['f_q'].append(flow)
         dict_eq_fq['e_q'].append((1 / (max(1, int(r / (path_lengths[(origin, destination)] * 2))))))
 
-    print(path_lengths)
-
     # make master dict with key q, with list of all feasible station combinations on q with r
     route_refuel_comb = {}
-    for route_key, combis in paths.items():
+
+    for route_key, potential_locations in harbours.items():
         h = []
-        # #functioning shortcut, now not nessecary: check if single station is enough
-        # if r >= path_lengths[i]:
-        #     h = [tuple (k) for k in str(j)]
-        #     route_refuel_comb[i] = h
+        # #functioning shortcut, check if any single station is enough (e.g. dist < 2 x r)
+        # if r > (path_lengths[route_key]*2):
+        #     for facility in harbours[route_key]:
+        #         h.append(tuple(facility))
         # else:
         # create all possible station combinations on this path
-        for L in range(0, len(combis) + 1):
-            for k in itertools.combinations(combis, (L + 1)):
+        for L in range(0, len(potential_locations) + 1):
+            for k in itertools.combinations(potential_locations, (L + 1)):
                 h.append(k)
         # now add to dict:
         route_refuel_comb[route_key] = h
 
+    print('route refuel combinations to eval', route_refuel_comb)
     # now check feasibility
     # new master dict to store feasible combinations
     feasible_combinations = {}
@@ -81,11 +100,14 @@ def first_stage_frlm(G, r, OD):
     for route_key, route in route_refuel_comb.items():
         feasible_combinations[route_key] = []
         # store path for this route (on which round trip should be feasible)
-        path = paths[route_key]
-        round_trip = path[:-1] + path[::-1]
+        harbours_on_route = harbours[route_key]
+        # this creates a list with (a, b, c, b, a) if route from a to c via b.
+        round_trip = harbours_on_route[:-1] + harbours_on_route[::-1]
+        print(round_trip)
 
         # now loop through all possible station combinations
         for combi in route:
+            print('evaluate combi', combi)
             # start at origin
             current_pos = round_trip[0]
             # start with full range if refueling station at origin, otherwise half full
@@ -96,53 +118,58 @@ def first_stage_frlm(G, r, OD):
             # simulate power levels during round trip
             # [1:] because first dest is second entry round trip list
             for sub_dest in round_trip[1:]:
-                #               #try to travel to new dest, first calculate dist to new destination
-                dist = G.get_edge_data(current_pos, sub_dest)['length_m']
+                # print('currently at', current_pos, 'traveling to', sub_dest, 'current range =', current_range)
+                # try to travel to new dest, first calculate dist to new destination
+                dist = nx.dijkstra_path_length(G, current_pos, sub_dest, weight='length_m')
                 # only travel if dist is not too long
                 if (current_range - dist) >= 0:
-                    # if there is fuel station at destination: trip feasible
-                    if (sub_dest in combi):
-                        # final dest reached?
-                        if (sub_dest == path[-1]):
-                            feasible_combinations[route_key].append(combi)
-                            break
-                    # else: maybe feasible, double back route to check!
-                    else:
-                        if (sub_dest == path[0]):
-                            feasible_combinations[route_key].append(combi)
-                            break
-                    # if not at final destination update range and pos
+
+                    # update range and pos
                     current_pos = sub_dest
                     current_range -= dist
                     # if there is a refueling station, refuel
                     if sub_dest in combi:
                         current_range = r
-                    # check if at final dest
+
+                    # final dest reached? (e.g. dest if refuel station at dest, otherwise origin)
+                    if (current_pos in combi) and (current_pos == harbours_on_route[-1]):
+                        feasible_combinations[route_key].append(combi)
+                        print('final dest reached!', current_pos)
+                        break
+                    # else: maybe feasible, double back route to check!
+                    elif current_pos == harbours_on_route[0]:
+                        feasible_combinations[route_key].append(combi)
+                        print('final dest reached!', current_pos)
+                        break
                 else:
+                    print('route unfeasible', current_range-dist)
                     break
 
     # next: find and remove supersets
-    for i, j in feasible_combinations.items():
-        feasible_combinations[i] = get_minimal_subsets(feasible_combinations[i])
+    for route_key, combinations in feasible_combinations.items():
+        if len(combinations) > 1:
+            feasible_combinations[route_key] = get_minimal_subsets(feasible_combinations[route_key])
+
+    print('feasible combinations', feasible_combinations)
     # Reformat data: create two dicts one with b_qh values and one with g_qhk values
     # first create list of all possible combinations
-    combinations = []
+    unique_combinations = []
     for i in feasible_combinations.values():
-        combinations += i
+        unique_combinations += i
 
     # remove duplicates
-    combinations = list(set(combinations))
+    unique_combinations = list(set(unique_combinations))
 
     # setup empty dict with keys to fill with b_qh values
     dict_b = {'q': []}
     # column for each unique combi
-    for j in combinations:
-        dict_b[j] = []
+    for combi in unique_combinations:
+        dict_b[combi] = []
 
     # first dict_
     for route_key, combinations_route in feasible_combinations.items():
         dict_b['q'].append(route_key)
-        for combination in combinations:
+        for combination in unique_combinations:
             if combination in combinations_route:
                 dict_b[combination].append(1)
             else:
@@ -151,17 +178,19 @@ def first_stage_frlm(G, r, OD):
     # setup next dict to store g_qhk values
     dict_g = {'q': [], 'h': []}
 
-    for node in node_list:
-        dict_g[node] = []
-
     # fill second dict for g_qhk
-    for route_key, route in feasible_combinations.items():
-        for combination in route:
+    print('Combinations:', combinations)
+    for route_key, combinations in feasible_combinations.items():
+        for combination in combinations:
             dict_g['q'].append(route_key)
             dict_g['h'].append(combination)
-            for node in node_list:
+            for node in harbours[route_key]:
+                # create keys on run for now
+                if not node in dict_g.keys():
+                    dict_g[node] = []
+                print('Node:', node, 'combination:', combination)
                 if node in combination:
-                    if node in route_key:
+                    if (node == harbours[route_key][0]) or (node == harbours[route_key][-1]):
                         dict_g[node].append(1)
                     else:
                         dict_g[node].append(2)

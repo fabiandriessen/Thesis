@@ -40,24 +40,26 @@ def second_stage_frlm(p, c, df_g, df_b, df_eq_fq):
     # Define problem
     model = LpProblem('CFRLM', LpMaximize)
 
-    #objective function
+    # objective function
     model += pulp.lpSum([flow_allocation[q,h] * df_b[h][q] * df_eq_fq['f_q'][q] for q,h in df_g.index])
 
-    ################################################constraints##################################################
+    # ###############################################constraints##################################################
     # first constraint
     # for each facility
     for key, facility in facilities_to_build.items():
         model+= pulp.lpSum(df_eq_fq['e_q'][q] * df_g[key].loc[df_g.index == (q,h)] * df_eq_fq['f_q'][q] *
                            flow_allocation[q,h] for q,h in df_g.index) <= pulp.lpSum(c* facility)
 
-    #second constraint
-    model += pulp.lpSum(facilities_to_build[i] for i in range(len(facilities_to_build.keys()))) <= p
+    # second constraint
+    print(facilities_to_build)
 
-    #third constraint
+    model += pulp.lpSum(facilities_to_build[i] for i in facilities_to_build.keys()) <= p
+
+    # third constraint
     for q in df_b.index:
         model += pulp.lpSum([flow_allocation[q,h] * df_b[h][q]] for h in df_g.loc[q].index) <= 1
 
-    # print(model)
+    print(model)
     #solve
     model.solve()
 
