@@ -32,10 +32,7 @@ def first_stage_frlm(G, r, OD):
         example input:
         [(node_1, node_2, flow_12),(node_1, node_3, flow_13),(node_2, node_3, flow_23)]
         """
-    # get data from graph in list format
-    # node_list = [i for i in G.nodes]
-    # edge_list = [i for i in G.edges]
-    # edge_list_w = []
+    # load in harbour exits that are created in notebook harbour exits
     harbour_exits = pickle.load( open("data/harbour_exits.p", "rb") )
 
     # Now also create weighted edge list in the format [(begin, start, weight),(..), etc.]
@@ -92,7 +89,7 @@ def first_stage_frlm(G, r, OD):
         # now add to dict:
         route_refuel_comb[route_key] = h
 
-    print('route refuel combinations to eval', route_refuel_comb)
+    # print('route refuel combinations to eval', route_refuel_comb)
     # now check feasibility
     # new master dict to store feasible combinations
     feasible_combinations = {}
@@ -103,11 +100,11 @@ def first_stage_frlm(G, r, OD):
         harbours_on_route = harbours[route_key]
         # this creates a list with (a, b, c, b, a) if route from a to c via b.
         round_trip = harbours_on_route[:-1] + harbours_on_route[::-1]
-        print(round_trip)
+        # print(round_trip)
 
         # now loop through all possible station combinations
         for combi in route:
-            print('evaluate combi', combi)
+            # print('evaluate combi', combi)
             # start at origin
             current_pos = round_trip[0]
             # start with full range if refueling station at origin, otherwise half full
@@ -134,15 +131,15 @@ def first_stage_frlm(G, r, OD):
                     # final dest reached? (e.g. dest if refuel station at dest, otherwise origin)
                     if (current_pos in combi) and (current_pos == harbours_on_route[-1]):
                         feasible_combinations[route_key].append(combi)
-                        print('final dest reached!', current_pos)
+                        # print('final dest reached!', current_pos)
                         break
                     # else: maybe feasible, double back route to check!
                     elif current_pos == harbours_on_route[0]:
                         feasible_combinations[route_key].append(combi)
-                        print('final dest reached!', current_pos)
+                        # print('final dest reached!', current_pos)
                         break
                 else:
-                    print('route unfeasible', current_range-dist)
+                    # print('route unfeasible', current_range-dist)
                     break
 
     # next: find and remove supersets
@@ -150,7 +147,7 @@ def first_stage_frlm(G, r, OD):
         if len(combinations) > 1:
             feasible_combinations[route_key] = get_minimal_subsets(feasible_combinations[route_key])
 
-    print('feasible combinations', feasible_combinations)
+    # print('feasible combinations', feasible_combinations)
     # Reformat data: create two dicts one with b_qh values and one with g_qhk values
     # first create list of all possible combinations
     unique_combinations = []
@@ -179,7 +176,7 @@ def first_stage_frlm(G, r, OD):
     dict_g = {'q': [], 'h': []}
 
     # fill second dict for g_qhk
-    print('Combinations:', combinations)
+    # print('Combinations:', combinations)
     for route_key, combinations in feasible_combinations.items():
         for combination in combinations:
             dict_g['q'].append(route_key)
@@ -188,7 +185,7 @@ def first_stage_frlm(G, r, OD):
                 # create keys on run for now
                 if not node in dict_g.keys():
                     dict_g[node] = []
-                print('Node:', node, 'combination:', combination)
+                # print('Node:', node, 'combination:', combination)
                 if node in combination:
                     if (node == harbours[route_key][0]) or (node == harbours[route_key][-1]):
                         dict_g[node].append(1)
@@ -196,7 +193,7 @@ def first_stage_frlm(G, r, OD):
                         dict_g[node].append(2)
                 else:
                     dict_g[node].append(0)
-
+    print(dict_g)
     # create dicts to return and set index right
     df_b = pd.DataFrame.from_dict(dict_b)
     df_b.set_index('q', inplace=True)
