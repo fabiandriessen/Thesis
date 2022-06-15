@@ -4,7 +4,8 @@ import itertools
 import pickle
 
 
-#this script is copied from: https://stackoverflow.com/questions/50634876/how-can-you-remove-superset-lists-from-a-list-of-lists-in-python
+# this script is copied from:
+# https://stackoverflow.com/questions/50634876/how-can-you-remove-superset-lists-from-a-list-of-lists-in-python
 def get_minimal_subsets(sets):
     sets = sorted(map(set, sets), key=len)
     minimal_subsets = []
@@ -15,6 +16,7 @@ def get_minimal_subsets(sets):
     tuples_inside = [tuple (k) for k in minimal_subsets]
 
     return tuples_inside
+
 
 def first_stage_frlm(G, r, OD):
     """
@@ -62,7 +64,6 @@ def first_stage_frlm(G, r, OD):
         for node in paths[(origin, destination)]:
             if node in harbour_exits:
                 harbours[(origin, destination)].append(node)
-        print('Harbours on route dict=', harbours)
 
         # store path length for shortcut later on and to be able to check with range
         path_lengths[(origin, destination)] = nx.dijkstra_path_length(G, origin, destination, weight='length_m')
@@ -72,8 +73,32 @@ def first_stage_frlm(G, r, OD):
         dict_eq_fq['f_q'].append(flow)
         dict_eq_fq['e_q'].append((1 / (max(1, int(r / (path_lengths[(origin, destination)] * 2))))))
 
+        # Too many harbours... Q: What is the distance between harbours on each route?
+        # print('Observing route:', (origin,destination))
+        cleaned_harbours = [harbours[(origin, destination)][0]]
+        for index in range(len(harbours[(origin, destination)])-1):
+            dist = nx.dijkstra_path_length(G, cleaned_harbours[-1], harbours[(origin,destination)][index+1], weight='length_m')
+            if dist > 2000:
+                cleaned_harbours.append(harbours[(origin, destination)][index+1])
+            # else:
+                # print('node thrown out:', harbours[(origin, destination)][index+1], 'for route', origin, destination)
+            # print(dist)
+        harbours[(origin, destination)] = cleaned_harbours
+
+    # print(harbours)
+
     # make master dict with key q, with list of all feasible station combinations on q with r
     route_refuel_comb = {}
+
+    # create list with all unique harbours that can supply any route
+
+    all_harbours=[]
+    for harbour in harbours.values():
+        all_harbours.append(harbour)
+
+    all_harbours = [x for xs in all_harbours for x in xs]
+
+    all_harbours = list(set(all_harbours))
 
     for route_key, potential_locations in harbours.items():
         h = []
@@ -154,6 +179,7 @@ def first_stage_frlm(G, r, OD):
     for i in feasible_combinations.values():
         unique_combinations += i
 
+    # print(feasible_combinations)
     # remove duplicates
     unique_combinations = list(set(unique_combinations))
 
@@ -174,17 +200,18 @@ def first_stage_frlm(G, r, OD):
 
     # setup next dict to store g_qhk values
     dict_g = {'q': [], 'h': []}
-
+    for node in all_harbours:
+        dict_g[node] = []
     # fill second dict for g_qhk
     # print('Combinations:', combinations)
     for route_key, combinations in feasible_combinations.items():
         for combination in combinations:
             dict_g['q'].append(route_key)
             dict_g['h'].append(combination)
-            for node in harbours[route_key]:
+            for node in all_harbours:
                 # create keys on run for now
-                if not node in dict_g.keys():
-                    dict_g[node] = []
+                # if not node in dict_g.keys():
+                #     dict_g[node] = []
                 # print('Node:', node, 'combination:', combination)
                 if node in combination:
                     if (node == harbours[route_key][0]) or (node == harbours[route_key][-1]):
@@ -193,7 +220,7 @@ def first_stage_frlm(G, r, OD):
                         dict_g[node].append(2)
                 else:
                     dict_g[node].append(0)
-    print(dict_g)
+
     # create dicts to return and set index right
     df_b = pd.DataFrame.from_dict(dict_b)
     df_b.set_index('q', inplace=True)
