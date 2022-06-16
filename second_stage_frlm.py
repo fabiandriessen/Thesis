@@ -1,4 +1,5 @@
 from pulp import *
+import re
 
 
 def second_stage_frlm(p, c, df_g, df_b, df_eq_fq):
@@ -85,7 +86,7 @@ def second_stage_frlm(p, c, df_g, df_b, df_eq_fq):
     # now divide over dicts ...
     for var in model.variables():
         if 'Facilities' in str(var):
-            optimal_facilities[var] = value(var)
+            optimal_facilities[re.sub("[^0-9]", "", str(var))] = value(var)
         else:
             optimal_flows[var] = value(var)
 
