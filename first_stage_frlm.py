@@ -25,7 +25,7 @@ def first_stage_frlm(G, r, OD):
     Parameters
     ----------
     G : NetworkX graph
-        must include all origins, desinations and any nodes where a refueling station may be placed.
+        must include all origins, destinations and any nodes where a refueling station may be placed.
     r : float
         range means of transport with full tank.
     OD: list
