@@ -52,7 +52,7 @@ def first_stage_frlm(G, r, OD):
     # create list with all nodes in keys and combinations
     # nodes_in_comb =[]
 
-    # generate shortest paths for al origin destinations
+    # generate the shortest paths for al origin destinations
     for origin, destination, flow in OD:
         # nodes_in_comb += [origin, destination]
         paths[(origin, destination)] = nx.dijkstra_path(G, origin, destination, weight='length_m')

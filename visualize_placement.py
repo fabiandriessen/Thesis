@@ -21,7 +21,6 @@ def visualize_placement(G, OD_list, optimal_facilities, unused=True):
         """
 
     # Define new graph H with only nodes and edges in routes
-
     node_list = []
     origins = []
     destinations = []
@@ -54,7 +53,9 @@ def visualize_placement(G, OD_list, optimal_facilities, unused=True):
 
     H_fuel = H.subgraph(fuel_stations)
 
-    # now draw
+    # now draw, first setup grid
+    fig, ax = plt.subplots(figsize=(16, 9), dpi=100)
+
     # all edges related to route
     nx.draw_networkx_edges(H, pos=pos_dict, width=2)
 
@@ -63,10 +64,10 @@ def visualize_placement(G, OD_list, optimal_facilities, unused=True):
     nx.draw_networkx_nodes(G, pos_dict, destinations, node_color='yellow', node_size=100, alpha=0.5)
 
     # fuel station nodes in red with label = number of fuel stations placed
-    nx.draw_networkx_nodes(H_fuel, pos_dict, node_color='red')
+    nx.draw_networkx_nodes(H_fuel, pos_dict, node_color='red', alpha=0.5)
     nx.draw_networkx_labels(H_fuel, pos_dict, labels=nx.get_node_attributes(H_fuel, 'number_CS'))
 
     # unused potential fuel station locations in blue (if argument = True)
     if unused:
-        nx.draw_networkx_nodes(G, pos_dict, other_ks, node_color='blue')
+        nx.draw_networkx_nodes(G, pos_dict, other_ks, node_color='blue', alpha=0.5)
     plt.show()
