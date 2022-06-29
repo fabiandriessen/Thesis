@@ -35,7 +35,7 @@ def first_stage_frlm(G, r, OD):
         [(node_1, node_2, flow_12),(node_1, node_3, flow_13),(node_2, node_3, flow_23)]
         """
     # load in harbour exits that are created in notebook harbour exits
-    harbour_exits = pickle.load( open("data/harbour_exits.p", "rb") )
+    harbour_exits = pickle.load( open("data/berth_nodes.p", "rb") )
 
     # Now also create weighted edge list in the format [(begin, start, weight),(..), etc.]
     # for origin, destination in edge_list:
