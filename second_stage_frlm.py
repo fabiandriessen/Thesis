@@ -28,8 +28,13 @@ def second_stage_frlm(p, c, df_g, df_b, df_eq_fq):
 
     # define y_qh for each q and each h, and restrict between 0 and 1
     # constraint 1.5 already incorporated
+    a = df_g.reset_index()
+    flow_a = []
+    for i in a.index:
+        flow_a.append((a.q[i], a.h[i]))
+
     flow_allocation = pulp.LpVariable.dicts("Flow_captured",
-                                         ((q, h) for q, h in df_g.index),
+                                         ((q, h) for q, h in flow_a),
                                          lowBound=0,
                                          upBound=1,
                                          cat='Continuous')
@@ -57,7 +62,8 @@ def second_stage_frlm(p, c, df_g, df_b, df_eq_fq):
 
     # third constraint
     for q in df_b.index:
-        model += pulp.lpSum([flow_allocation[q,h] * df_b[h][q]] for h in df_g.loc[q].index) <= 1
+        model += pulp.lpSum([flow_allocation[q, h] * df_b[h][q]] for h in df_g.reset_index().
+                            loc[df_g.reset_index().q == q].h) <= 1
 
     print(model)
 

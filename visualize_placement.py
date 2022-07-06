@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 
-def visualize_placement(G, OD_list, optimal_facilities, unused=True):
+def visualize_placement(G, OD, optimal_facilities, df_h, paths, unused=True):
     """Function to draw network, routes and charging stations, based on a graph G, an origin destination list,
     and a dictionary with the facilities to visualize.
 
@@ -10,7 +10,7 @@ def visualize_placement(G, OD_list, optimal_facilities, unused=True):
     ----------
     G : NetworkX graph
         must include all origins, destinations and any nodes where a refueling station may be placed.
-    OD: list
+    OD: dict
         A list of travel data within network G, travel data from A-B and from B-A should be summed up and
         entered as either one of them.
         example input:
@@ -18,6 +18,8 @@ def visualize_placement(G, OD_list, optimal_facilities, unused=True):
     optimal_facilities: dict
         A dictionary that contains the nodes that are potential charging station locations as a key, and the number of
         charging stations that are placed at a node as an entry (N+).
+    df_h: pd.DataFrame
+        This dataframe as generated in revised_network_cleaning.ipynb
         """
 
     # Define new graph H with only nodes and edges in routes
@@ -25,12 +27,13 @@ def visualize_placement(G, OD_list, optimal_facilities, unused=True):
     origins = []
     destinations = []
 
-    for origin, destination, flow in OD_list:
-        origins.append(origin)
-        destinations.append(destination)
-        for node in nx.dijkstra_path(G, origin, destination, weight='length_m'):
-            if node not in node_list:
-                node_list.append(node)
+    for (origin, destination, version), flow in OD.items():
+        origins.append(df_h.loc[df_h.harbour_code == origin]['harbour_node'].values[0])
+        destinations.append(df_h.loc[df_h.harbour_code == destination]['harbour_node'].values[0])
+        node_list.append(paths[(origin, destination, version)])
+
+    expanded_node_list = [x for xs in node_list for x in xs]
+    node_list = list(set(expanded_node_list))
 
     H = G.subgraph(node_list)
 
