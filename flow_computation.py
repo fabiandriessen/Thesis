@@ -1,11 +1,14 @@
 import pandas as pd
+import pickle
 
 
 def flow_computation(df):
 
+    # ship_data = pickle.load(open("data/flow_comp_factors.p", "rb"))
     ship_data = pd.read_excel('data/ship_types.xlsx')
     ship_data.fillna(0, inplace=True)
     ship_data = dict(zip(ship_data['RWS-class'], ship_data['Factor']))
+    pickle.dump(ship_data, open("data/flow_comp_factors.p", "wb"))
 
     # create dict to store path based values
     flows = {}

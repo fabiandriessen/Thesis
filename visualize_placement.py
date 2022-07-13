@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
 import networkx as nx
+import osmnx as ox
+import geopandas as gpd
 
 
-def visualize_placement(G, OD, optimal_facilities, df_h, paths, unused=True):
+def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, unused=True):
     """Function to draw network, routes and charging stations, based on a graph G, an origin destination list,
     and a dictionary with the facilities to visualize.
 
@@ -21,27 +23,30 @@ def visualize_placement(G, OD, optimal_facilities, df_h, paths, unused=True):
     df_h: pd.DataFrame
         This dataframe as generated in revised_network_cleaning.ipynb
         """
-
-    # Define new graph H with only nodes and edges in routes
-    node_list = []
-    origins = []
-    destinations = []
-
-    for (origin, destination, version), flow in OD.items():
-        origins.append(df_h.loc[df_h.harbour_code == origin]['harbour_node'].values[0])
-        destinations.append(df_h.loc[df_h.harbour_code == destination]['harbour_node'].values[0])
-        node_list.append(paths[(origin, destination, version)])
-
-    expanded_node_list = [x for xs in node_list for x in xs]
-    node_list = list(set(expanded_node_list))
-
-    H = G.subgraph(node_list)
-
     # create pos dict
     pos_dict = {}
-    for node in node_list:
-        pos_dict[node] = (G.nodes[node]['X'],G.nodes[node]['Y'])
+    for node in G.nodes:
+        pos_dict[node] = (G.nodes[node]['X'], G.nodes[node]['Y'])
 
+    # Define new graph H with only nodes and edges in available routes
+    node_list = []
+    # origins = []
+    # destinations = []
+
+    for key in non_zero_flows:
+        # origins.append(df_h.loc[df_h.harbour_code == origin]['harbour_node'].values[0])
+        # destinations.append(df_h.loc[df_h.harbour_code == destination]['harbour_node'].values[0])
+        node_list += paths[key]
+
+    # only keep unique nodes
+    node_list = list(set(node_list))
+    other_nodes = list(set(G.nodes)-set(node_list))
+
+    # sub graph with supported nodes
+    H = G.subgraph(node_list)
+
+    # # sub graph with all nodes in unsupported routes
+    # K = G.subgraph(other_nodes)
     # make two lists: one with used locations and one with unused locations
     other_ks = []
     fuel_stations = []
@@ -54,23 +59,37 @@ def visualize_placement(G, OD, optimal_facilities, df_h, paths, unused=True):
         else:
             other_ks.append(key)
 
-    H_fuel = H.subgraph(fuel_stations)
-
+    H_fuel = G.subgraph(fuel_stations)
+    print(H_fuel.nodes)
     # now draw, first setup grid
-    fig, ax = plt.subplots(figsize=(16, 9), dpi=100)
+    # fig, ax = plt.subplots(figsize=(6, 6), dpi=200)
+    fig, ax = plt.subplots(figsize=(9,9), dpi=200)
+    # ax.set_facecolor('w')
+    # country = ox.geocode_to_gdf('Europe, Netherlands')
+    # # country.set_crs({'init': 'epsg:28992'})
+    # country = ox.project_gdf(country)
+    # ox.plot_footprints(country, ax=ax, color='gray', alpha=0.1)
 
+    # country = ox.geocode_to_gdf('')
+    # or get shapes of boroughs, counties, states, countries - anything OpenStreetMap has boundary geometry for
     # all edges related to route
-    nx.draw_networkx_edges(H, pos=pos_dict, width=2)
+    nx.draw_networkx_edges(G, pos_dict, width=2, ax=ax)
+    nx.draw_networkx_edges(H, pos=pos_dict, width=2, edge_color='red', ax=ax, label='Supported routes')
 
     # draw origin and destination nodes
-    nx.draw_networkx_nodes(G, pos_dict, origins, node_color='green', node_size=100, alpha=0.5)
-    nx.draw_networkx_nodes(G, pos_dict, destinations, node_color='yellow', node_size=100, alpha=0.5)
+    # nx.draw_networkx_nodes(G, pos_dict, origins, node_color='green', node_size=100, alpha=0.5)
+    # nx.draw_networkx_nodes(G, pos_dict, destinations, node_color='yellow', node_size=100, alpha=0.5)
 
     # fuel station nodes in red with label = number of fuel stations placed
-    nx.draw_networkx_nodes(H_fuel, pos_dict, node_color='red', alpha=0.5)
-    nx.draw_networkx_labels(H_fuel, pos_dict, labels=nx.get_node_attributes(H_fuel, 'number_CS'))
+    nx.draw_networkx_nodes(H_fuel, pos_dict, node_color='red', node_size=50, alpha=1, ax=ax)
+    nx.draw_networkx_labels(H_fuel, pos_dict, labels=nx.get_node_attributes(H_fuel, 'number_CS'), ax=ax, font_size=8)
 
     # unused potential fuel station locations in blue (if argument = True)
     if unused:
-        nx.draw_networkx_nodes(G, pos_dict, other_ks, node_color='blue', alpha=0.5)
+        nx.draw_networkx_nodes(G, pos_dict, other_ks, node_color='blue', alpha=1, node_size=50, ax=ax)
+
+    plt.legend(fontsize=16)
     plt.show()
+
+    return H_fuel
+

@@ -24,21 +24,27 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
     considering travel range r, assuming that charging stations can be placed on any node of G.
     Parameters
     ----------
-    G : NetworkX graph
-        Must include all origins, destinations and any nodes where a refueling station may be placed.
     r : float
         range means of transport with full tank.
+    G : NetworkX graph
+        Must include all origins, destinations and any nodes where a refueling station may be placed.
     OD: dict
         This dict contains the travel data within network G, travel data from A-B and from B-A should be summed up and
         entered as either one of them.
         example input:
-        [(node_1, node_2, flow_12),(node_1, node_3, flow_13),(node_2, node_3, flow_23)]
+        {(node_1, node_2, route_v1) : flow12_r1, (node_1, node_2, route_v2) : flow12_r2, (node_1, node_3, route_v1) :
+        flow13_v1}
     paths: dict
         Dictionary that contains all paths between the OD pairs that are in OD.
+        example input:
+        {(node_1, node_2, route_v1) : [list of nodes consecutive], (node_1, node_2, route_v2) :
+         [list of nodes consecutive], (node_1, node_3, route_v1) : [list of nodes consecutive]}
     path_lengths: dict
-        Dictionary that contains all path lengths between the OD pairs that are in OD.
+        Dictionary that contains all path lengths (in meters) between the OD pairs that are in OD, with the same keys as
+        OD and paths dicts.
     df_h: pd.DataFrame
-        This Dataframe as generated in revised_network_cleaning.ipynb
+        This is a Dataframe as generated in revised_network_cleaning.ipynb, that contains the data of harbours and the
+        corresponding harbour nodes in G.
         """
     # load in harbour exits that are created in notebook harbour exits
     harbour_nodes = list(df_h.harbour_node.unique())
@@ -51,70 +57,26 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
     # create list with all nodes in keys and combinations
     # nodes_in_comb =[]
 
-    # generate the shortest paths for al origin destinations
+    # for each route
     for (origin, destination, version), flow in OD.items():
-        # get relevant data
-        path = paths[(origin, destination, version)]
-        path_length = path_lengths[(origin, destination, version)]
+        # create empty list to store harbours on route
         harbour_dict[(origin, destination, version)] = []
-
+        # check all nodes for harbours and append if necessary
         for node in paths[(origin, destination, version)]:
             if node in harbour_nodes:
                 harbour_dict[(origin, destination, version)].append(node)
 
-        # # nodes_in_comb += [origin, destination]
-        # paths[(origin, destination)] = nx.dijkstra_path(G, origin, destination, weight='length_m')
-        # # print('All nodes on route', paths[(origin, destination)])
-        # # paths[(origin, destination)] = list(set(paths[(origin, destination)]).intersection(harbour_exits))
-        #
-        # # Put harbours on each route in list
-        # harbours[(origin, destination)] = []
-        # for node in paths[(origin, destination)]:
-        #     if node in harbour_exits:
-        #         harbours[(origin, destination)].append(node)
-        #
-        # # store path length for shortcut later on and to be able to check with range
-        # path_lengths[(origin, destination)] = nx.dijkstra_path_length(G, origin, destination, weight='length_m')
-
-        # fill dict for eq_fq dataframe
+        # store relevant variables
         dict_eq_fq['q'].append((origin, destination, version))
         dict_eq_fq['f_q'].append(flow)
         dict_eq_fq['e_q'].append((1 / (max(1, int(r / (path_lengths[(origin, destination, version)] * 2))))))
 
-        # Too many harbours... Q: What is the distance between harbours on each route?
-        # print('Observing route:', (origin,destination))
-        # cleaned_harbours = [harbours[(origin, destination)][0]]
-        # for index in range(len(harbours[(origin, destination)])-1):
-        #     dist = nx.dijkstra_path_length(G, cleaned_harbours[-1], harbours[(origin,destination)][index+1], weight='length_m')
-        #     if dist > 2000:
-        #         cleaned_harbours.append(harbours[(origin, destination)][index+1])
-            # else:
-                # print('node thrown out:', harbours[(origin, destination)][index+1], 'for route', origin, destination)
-            # print(dist)
-        # harbours[(origin, destination)] = cleaned_harbours
-
-    # print(harbours)
-
     # make master dict with key q, with list of all feasible station combinations on q with r
     route_refuel_comb = {}
 
-    # create list with all unique harbours that can supply any route
-
-    # all_harbours = []
-    # for harbour in harbours.values():
-    #     all_harbours.append(harbour)
-
-    # all_harbours = [x for xs in all_harbours for x in xs]
-
-    # all_harbours = list(set(all_harbours))
-
     for route_key, potential_locations in harbour_dict.items():
         h = []
-        # #functioning shortcut, check if any single station is enough (e.g. dist < 2 x r)
-        # if r > (path_lengths[route_key]*2):
-        #     for facility in harbours[route_key]:
-        #         h.append(tuple(facility))
-        # else:
+    # functioning shortcut, check if any single station is enough (e.g. dist < 2 x r)
         # create all possible station combinations on this path
         for L in range(0, len(potential_locations) + 1):
             for k in itertools.combinations(potential_locations, (L + 1)):
@@ -122,9 +84,7 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
         # now add to dict:
         route_refuel_comb[route_key] = h
 
-    # print('route refuel combinations to eval', route_refuel_comb)
-    # now check feasibility
-    # new master dict to store feasible combinations
+    # now check feasibility, new master dict to store feasible combinations
     feasible_combinations = {}
 
     for route_key, route in route_refuel_comb.items():
@@ -132,8 +92,7 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
         # store path for this route (on which round trip should be feasible)
         harbours_on_route = harbour_dict[route_key]
         # this creates a list with (a, b, c, b, a) if route from a to c via b.
-        round_trip = harbours_on_route[:-1] + harbours_on_route[::-1]
-        # print(round_trip)
+        round_trip = paths[route_key][:-1] + paths[route_key][::-1]
 
         # now loop through all possible station combinations
         for combi in route:
@@ -164,15 +123,12 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
                     # final dest reached? (e.g. dest if refuel station at dest, otherwise origin)
                     if (current_pos in combi) and (current_pos == harbours_on_route[-1]):
                         feasible_combinations[route_key].append(combi)
-                        # print('final dest reached!', current_pos)
                         break
                     # else: maybe feasible, double back route to check!
                     elif current_pos == harbours_on_route[0]:
                         feasible_combinations[route_key].append(combi)
-                        # print('final dest reached!', current_pos)
                         break
                 else:
-                    # print('route unfeasible', current_range-dist)
                     break
 
     # next: find and remove supersets
@@ -180,17 +136,14 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
         if len(combinations) > 1:
             feasible_combinations[route_key] = get_minimal_subsets(feasible_combinations[route_key])
 
-    # print('feasible combinations', feasible_combinations)
     # Reformat data: create two dicts one with b_qh values and one with g_qhk values
     # first create list of all possible combinations
     unique_combinations = []
     for i in feasible_combinations.values():
         unique_combinations += i
-
-    # print(feasible_combinations)
     # remove duplicates
     unique_combinations = list(set(unique_combinations))
-    print(unique_combinations)
+
     # setup empty dict with keys to fill with b_qh values
     dict_b = {'q': []}
     # column for each unique combi
