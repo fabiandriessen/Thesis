@@ -5,6 +5,10 @@ import pickle
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from pulp import *
+import re
+import geopy.distance
+
 
 # this script is copied from:
 # https://stackoverflow.com/questions/50634876/how-can-you-remove-superset-lists-from-a-list-of-lists-in-python
@@ -154,7 +158,7 @@ def flow_computation(df):
     return flows
 
 
-def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
+def first_stage_frlm_extra_nodes(r, G, OD, paths, path_lengths, df_h, additional_nodes = []):
     """
     Returns feasible charging station combinations for transport network G for routes in OD,
     considering travel range r, assuming that charging stations can be placed on any node of G.
@@ -183,7 +187,7 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
         corresponding harbour nodes in G.
         """
     # load in harbour exits that are created in notebook harbour exits
-    harbour_nodes = list(df_h.harbour_node.unique())
+    harbour_nodes = list(df_h.harbour_node.unique()) + additional_nodes
     harbour_dict = {}
     # collect paths to refuel and path lengths in dicts, first create empty dicts
 
@@ -222,9 +226,10 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
 
     # now check feasibility, new master dict to store feasible combinations
     feasible_combinations = {}
-
+    additional_combinations = {}
     for route_key, route in route_refuel_comb.items():
         feasible_combinations[route_key] = []
+        additional_combinations[route_key] = []
         # store path for this route (on which round trip should be feasible)
         harbours_on_route = harbour_dict[route_key]
         # this creates a list with (a, b, c, b, a) if route from a to c via b.
@@ -232,6 +237,8 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
 
         # now loop through all possible station combinations
         for combi in route:
+            extra_nodes = []
+            extra_node = False
             # print('evaluate combi', combi)
             # start at origin
             current_pos = round_trip[0]
@@ -246,39 +253,65 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
                 # print('currently at', current_pos, 'traveling to', sub_dest, 'current range =', current_range)
                 # try to travel to new dest, first calculate dist to new destination
                 dist = nx.dijkstra_path_length(G, current_pos, sub_dest, weight='length_m')
+
+                # if extra node has been inserted, set range to max again and fuel up
+                if extra_node:
+                    current_range = r
+                    extra_node = False
+
                 # only travel if dist is not too long
                 if (current_range - dist) >= 0:
 
                     # update range and pos
                     current_pos = sub_dest
                     current_range -= dist
+
                     # if there is a refueling station, refuel
                     if sub_dest in combi:
                         current_range = r
 
                     # final dest reached? (e.g. dest if refuel station at dest, otherwise origin)
                     if (current_pos in combi) and (current_pos == harbours_on_route[-1]):
-                        feasible_combinations[route_key].append(combi)
-                        break
+                        if len(extra_nodes) != 0:
+                            # print("combi", combi, "for route:", route, "is feasible with extra nodes:", extra_nodes,
+                            #       "combi", tuple(list(combi)+extra_nodes), "added to dict")
+                            additional_combinations[route_key].append(tuple(list(combi) + extra_nodes))
+                            # harbour_nodes += extra_nodes
+                            break
+                        else:
+                            feasible_combinations[route_key].append(combi)
+                            break
                     # else: maybe feasible, double back route to check!
                     elif current_pos == harbours_on_route[0]:
-                        feasible_combinations[route_key].append(combi)
-                        break
+                        if len(extra_nodes) != 0:
+                            additional_combinations[route_key].append(tuple(list(combi) + extra_nodes))
+                            # harbour_nodes += extra_nodes
+                            break
+                        else:
+                            feasible_combinations[route_key].append(combi)
                 else:
-                    break
+                    if len(additional_nodes) > 0:
+                        break
+                    # insert extra node at previous dest
+                    else:
+                        extra_nodes.append(current_pos)
+                        extra_node = True
 
     # next: find and remove supersets
     for route_key, combinations in feasible_combinations.items():
         if len(combinations) > 1:
             feasible_combinations[route_key] = get_minimal_subsets(feasible_combinations[route_key])
+            additional_combinations[route_key] = get_minimal_subsets(additional_combinations[route_key])
 
     # Reformat data: create two dicts one with b_qh values and one with g_qhk values
     # first create list of all possible combinations
     unique_combinations = []
     for i in feasible_combinations.values():
         unique_combinations += i
+
     # remove duplicates
     unique_combinations = list(set(unique_combinations))
+    harbour_nodes = list(set(harbour_nodes))
 
     # setup empty dict with keys to fill with b_qh values
     dict_b = {'q': []}
@@ -295,7 +328,6 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
             else:
                 dict_b[combination].append(0)
 
-    # setup next dict to store g_qhk values
     dict_g = {'q': [], 'h': []}
     for node in harbour_nodes:
         dict_g[node] = []
@@ -328,14 +360,85 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
     df_eq_fq = pd.DataFrame.from_dict(dict_eq_fq)
     df_eq_fq.set_index('q', inplace=True)
 
-    return df_b, df_g, df_eq_fq
+    return df_b, df_g, df_eq_fq, additional_combinations, feasible_combinations
 
 
-from pulp import *
-import re
+def process_additional_combinations(feasible_combinations, additional_combinations, max_nodes_in_route):
+    ## Load necessary data
+    G = pickle.load(open('data/cleaned_network.p', 'rb'))
+    df_h = pickle.load(open("data/harbour_data_100.p", "rb"))
+    df_nodes = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
+
+    df_nodes['degree'] = G.degree
+    df_nodes['degree'] = df_nodes.degree.apply(lambda x: x[1])
+
+    harbour_nodes = list(df_h.harbour_node.unique())
+    # create list to store final additional harbour nodes
+    additional_harbour_nodes = []
+    # only keep additional combinations for routes that do not have any other feasible combinations
+    additional_combinations1 = {i: additional_combinations[i] for i in additional_combinations.keys() if
+                                not feasible_combinations[i]}
+    #create additional combinations 2 with empty lists to fill
+    additional_combinations2 = {i: [] for i in additional_combinations1.keys()}
+    for i in additional_combinations1.keys():
+        if len(additional_combinations1.keys()) > 1:
+            for j in additional_combinations1[i]:
+                if len(j) <= max_nodes_in_route:
+                    # each node of each combination that is max equal to the amount of nodes in the route
+                    additional_combinations2[i].append(j)
+
+    for i in list(additional_combinations2.values()):
+        for j in i:
+            for k in j:
+                additional_harbour_nodes.append(k)
+    # only keep unique nodes
+    additional_harbour_nodes = list(set(additional_harbour_nodes))
+    # remove existing harbour nodes and some nodes in the middle of the sea
+    additional_harbour_nodes = list(
+        set(additional_harbour_nodes) - set(harbour_nodes) - {'8861819', '8862449', '8864829', '8860852', '8860640',
+                                                              '8864054', '8861649'})
+    # final step: filter them
+    # # empty list to store filtered values
+    # filtered_add_h = []
+    # # loop over all harbour entries
+    # for i in additional_harbour_nodes:
+    #     x = df_nodes.X[i]
+    #     y = df_nodes.Y[i]
+    #     dev = 0.08
+    #     # find nodes within deviation
+    #     # select nodes near
+    #     selection = df_nodes.loc[(df_nodes.X.between(x - dev, x + dev)) & (df_nodes.Y.between(y - dev, y + dev))]
+    #
+    #     # in some areas there are very few nodes, therefore iteratively increase range to look for nodes until at
+    #     # least one is found
+    #     while len(selection) == 0:
+    #         dev += 0.1
+    #         selection = list(
+    #             df_nodes.loc[(df_nodes.X.between(x - dev, x + dev)) & (df_nodes.Y.between(y - dev, y + dev))].index)
+    #
+    #     # if any of the nodes nearby is already selected, pick this one
+    #     already_found_near = list(set(list(selection.index)) & set(filtered_add_h))
+    #     if len(already_found_near) > 0:
+    #         selection = df_nodes.loc[df_nodes.n.isin(already_found_near)]
+    #         selection['dist'] = 0
+    #         for node in selection.index:
+    #             selection.dist[node] = geopy.distance.geodesic((x, y), (selection.X[node], selection.Y[node]))
+    #         pick = selection.loc[selection.dist == selection.dist.min()].index[0]
+    #
+    #         if df_nodes[df_nodes.index == pick].degree[0] > df_nodes[df_nodes.index == i].degree[0]:
+    #             filtered_add_h.append(pick)
+    #         else:
+    #             filtered_add_h.remove(pick)
+    #             filtered_add_h.append(i)
+    #     else:
+    #         # else we just add the node itself
+    #         filtered_add_h.append(i)
+    #
+    return additional_harbour_nodes
 
 
-def second_stage_frlm(p, c, max_per_loc, df_g, df_b, df_eq_fq):
+
+def second_stage_frlm_extra_nodes(p, c, max_per_loc, df_g, df_b, df_eq_fq):
     """ This program optimally sites n charging stations with a max capacity c,
     based on three DataFrames that are generated by the first_stage_FRLM function.
         Parameters
@@ -409,7 +512,7 @@ def second_stage_frlm(p, c, max_per_loc, df_g, df_b, df_eq_fq):
     model.solve()
 
     status = LpStatus[model.status]
-    # print(status)
+    print(status)
     # Values of decision variables at optimum
 
     # for var in model.variables():
@@ -425,7 +528,7 @@ def second_stage_frlm(p, c, max_per_loc, df_g, df_b, df_eq_fq):
         output_dict[str(var)] = value(var)
     # tuple(re.sub('''["'_']''', "", i[16:35]).split(','))
     # now divide over dicts
-    optimal_facilities = {re.sub('[^0-9]', "", i): output_dict[i] for i in output_dict.keys() if 'Facilities' in i}
+    optimal_facilities = {i: output_dict[i] for i in output_dict.keys() if 'Facilities' in i}
     optimal_flows = {i: output_dict[i] for i in output_dict.keys() if 'captured' in i}
 
     non_zero_flows = []
@@ -439,7 +542,7 @@ def second_stage_frlm(p, c, max_per_loc, df_g, df_b, df_eq_fq):
 
 
 
-def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_per_loc):
+def flow_refueling_location_model_extra_nodes(load, r, stations_to_place, station_cap, max_per_loc, flows):
     """abc
     Parameters
     ----------
@@ -460,14 +563,28 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     paths = pickle.load(open("data/paths_ship_specific_routes.p", "rb"))
     path_lengths = pickle.load(open("data/path_lengths_ship_specific_routes.p", "rb"))
 
-    df_random = random_vessel_generator(df_ivs, load)
-    flows = flow_computation(df_random)
     total_flow = sum(flows.values())
-    df_b, df_g, df_eq_fq = first_stage_frlm(r, G, OD=flows, paths=paths, path_lengths=path_lengths, df_h=df_h)
-    optimal_facilities, optimal_flows, non_zero_flows, supported_flow = second_stage_frlm(stations_to_place,
-                                                                                          station_cap, max_per_loc,
-                                                                                          df_g, df_b, df_eq_fq)
+
+    # first produce additional nodes
+    df_b1, df_g1, df_eq_fq1, additional_combinations, feasible_combinations = \
+        first_stage_frlm_extra_nodes(r, G, OD=flows, paths=paths, path_lengths=path_lengths, df_h=df_h)
+
+    # process additional nodes
+    additional_harbours = process_additional_combinations(feasible_combinations, additional_combinations, 3)
+
+    # now run again with additional nodes as harbours
+    df_b, df_g, df_eq_fq, additional_combinations, feasible_combinations = \
+        first_stage_frlm_extra_nodes(r, G, OD=flows, paths=paths, path_lengths=path_lengths, df_h=df_h,
+                                     additional_nodes=additional_harbours)
+
+    # Finally, run second stage considering extra nodes
+    optimal_facilities, optimal_flows, non_zero_flows, supported_flow = \
+        second_stage_frlm_extra_nodes(stations_to_place, station_cap, max_per_loc, df_g, df_b, df_eq_fq)
+
     supported_fraction = (supported_flow/total_flow)
+
+    # get non harbour nodes
+    added_nodes = set(optimal_facilities) - set(df_h.harbour_node.unique())
 
     return total_flow, supported_fraction, optimal_facilities
 
