@@ -7,6 +7,12 @@ import pickle
 # this script is copied from:
 # https://stackoverflow.com/questions/50634876/how-can-you-remove-superset-lists-from-a-list-of-lists-in-python
 def get_minimal_subsets(sets):
+    """"
+    This function removes all subsets from a list of tuples.
+    Parameters
+    ----------
+    sets: list
+    """
     sets = sorted(map(set, sets), key=len)
     minimal_subsets = []
     for s in sets:
@@ -18,7 +24,7 @@ def get_minimal_subsets(sets):
     return tuples_inside
 
 
-def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
+def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None):
     """
     Returns feasible charging station combinations for transport network G for routes in OD,
     considering travel range r, assuming that charging stations can be placed on any node of G.
@@ -45,9 +51,12 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
     df_h: pd.DataFrame
         This is a Dataframe as generated in revised_network_cleaning.ipynb, that contains the data of harbours and the
         corresponding harbour nodes in G.
+    additional_nodes: list
+        This is a list that should contain all additional harbour nodes to be considered, next to the origin and
+        destination harbours.
         """
     # load in harbour exits that are created in notebook harbour exits
-    harbour_nodes = list(df_h.harbour_node.unique())
+    harbour_nodes = list(df_h.harbour_node.unique()) + additional_nodes
     harbour_dict = {}
     # collect paths to refuel and path lengths in dicts, first create empty dicts
 

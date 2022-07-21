@@ -3,7 +3,15 @@ import numpy as np
 
 
 def random_vessel_generator(df_prob, load):
-
+    """ Function to generate random vessel data.
+    Parameters
+    ----------
+    df_prob: pd.DataFrame
+    This dataframe must contain historical travel data
+    load: float
+    This float is equal to the simulated occupation of the network and may be read as the part of the traffic that is
+    electric.
+    """
     # create dict to store random prob based values later on
     main_dict = {i: [] for i in df_prob.columns}
 

@@ -3,7 +3,11 @@ import pickle
 
 
 def flow_computation(df):
-
+    """
+    Parameters
+    ----------
+    df: pd.Dataframe
+    This dataframe is compiled using the random_vessel_generator."""
     # ship_data = pickle.load(open("data/flow_comp_factors.p", "rb"))
     ship_data = pd.read_excel('data/ship_types.xlsx')
     ship_data.fillna(0, inplace=True)

@@ -60,7 +60,7 @@ def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, 
             other_ks.append(key)
 
     H_fuel = G.subgraph(fuel_stations)
-    print(H_fuel.nodes)
+    # print(H_fuel.nodes)
     # now draw, first setup grid
     # fig, ax = plt.subplots(figsize=(6, 6), dpi=200)
     fig, ax = plt.subplots(figsize=(9,9), dpi=200)
@@ -87,7 +87,6 @@ def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, 
     # unused potential fuel station locations in blue (if argument = True)
     if unused:
         nx.draw_networkx_nodes(G, pos_dict, other_ks, node_color='blue', alpha=1, node_size=50, ax=ax)
-
     plt.legend(fontsize=16)
     plt.show()
 

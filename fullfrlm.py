@@ -154,7 +154,7 @@ def flow_computation(df):
     return flows
 
 
-def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
+def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_harbour_nodes=None):
     """
     Returns feasible charging station combinations for transport network G for routes in OD,
     considering travel range r, assuming that charging stations can be placed on any node of G.
@@ -183,7 +183,7 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h):
         corresponding harbour nodes in G.
         """
     # load in harbour exits that are created in notebook harbour exits
-    harbour_nodes = list(df_h.harbour_node.unique())
+    harbour_nodes = list(df_h.harbour_node.unique()) + additional_harbour_nodes
     harbour_dict = {}
     # collect paths to refuel and path lengths in dicts, first create empty dicts
 
@@ -439,7 +439,7 @@ def second_stage_frlm(p, c, max_per_loc, df_g, df_b, df_eq_fq):
 
 
 
-def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_per_loc):
+def flow_refueling_location_model(G, paths, load, r, stations_to_place, station_cap, max_per_loc, additional_nodes):
     """abc
     Parameters
     ----------
@@ -454,20 +454,21 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     df_ivs: pd.DataFrame()
     G: nx.Graph()
     """
-    G = pickle.load(open('data/cleaned_network.p', 'rb'))
-    df_h = pickle.load(open("data/harbour_data_100.p", "rb"))
-    df_ivs = pickle.load(open("data/ivs_exploded_100.p", "rb"))
-    paths = pickle.load(open("data/paths_ship_specific_routes.p", "rb"))
-    path_lengths = pickle.load(open("data/path_lengths_ship_specific_routes.p", "rb"))
+    # G = pickle.load(open('data/cleaned_network.p', 'rb'))
+    df_h = pickle.load(open("data/revised_cleaning_results/harbour_data_100.p", "rb"))
+    df_ivs = pickle.load(open("data/revised_cleaning_results/ivs_exploded_100.p", "rb"))
+    # paths = pickle.load(open("data/revised_cleaning_results/paths_ship_specific_routes.p", "rb"))
+    path_lengths = pickle.load(open("data/revised_cleaning_results/path_lengths_ship_specific_routes.p", "rb"))
 
     df_random = random_vessel_generator(df_ivs, load)
     flows = flow_computation(df_random)
     total_flow = sum(flows.values())
-    df_b, df_g, df_eq_fq = first_stage_frlm(r, G, OD=flows, paths=paths, path_lengths=path_lengths, df_h=df_h)
+    df_b, df_g, df_eq_fq = first_stage_frlm(r, G, OD=flows, paths=paths, path_lengths=path_lengths, df_h=df_h,
+                                            additional_harbour_nodes=additional_nodes)
     optimal_facilities, optimal_flows, non_zero_flows, supported_flow = second_stage_frlm(stations_to_place,
                                                                                           station_cap, max_per_loc,
                                                                                           df_g, df_b, df_eq_fq)
     supported_fraction = (supported_flow/total_flow)
 
-    return total_flow, supported_fraction, optimal_facilities
+    return total_flow, supported_fraction, optimal_facilities, non_zero_flows
 
