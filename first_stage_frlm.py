@@ -56,7 +56,11 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
         destination harbours.
         """
     # load in harbour exits that are created in notebook harbour exits
+    if additional_nodes is None:
+        additional_nodes = []
+
     harbour_nodes = list(df_h.harbour_node.unique()) + additional_nodes
+
     harbour_dict = {}
     # collect paths to refuel and path lengths in dicts, first create empty dicts
 
