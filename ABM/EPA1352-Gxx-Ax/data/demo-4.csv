@@ -1,0 +1,27 @@
+﻿road,id,model_type,condition,name,lat,lon,length
+N1,1000000,sourcesink,,SoSi1,0,0,4
+N1,1000001,link ,NaN,,1,1,1800
+N1,1000002,bridge ,A,,2,2,200
+N1,1000003,link,NaN,,3,3,1500
+N1,1000004,bridge,A,,4,4,8
+N1,1000005,link,NaN,,5,5,2000
+N1,1000006,intersection,NaN,,6,6,20
+N1,1000007,link,NaN,,7,7,1400
+N1,1000008,bridge,A,,8,8,4
+N1,1000009,link,NaN,,9,9,2500
+N1,1000010,bridge,B,,10,10,500
+N1,1000011,link,NaN,,11,11,800
+N1,1000012,sourcesink,,SoSi2,12,12,20
+N2,1000013,sourcesink,,SoSi3,0,12,4
+N2,1000014,link ,NaN,,1,11,1800
+N2,1000015,bridge ,A,,2,10,200
+N2,1000016,link,NaN,,3,9,1500
+N2,1000017,bridge,A,,4,8,8
+N2,1000018,link,NaN,,5,7,2000
+N2,1000006,intersection,NaN,,6,6,20
+N2,1000020,link,NaN,,7,5,1400
+N2,1000021,bridge,A,,8,4,4
+N2,1000022,link,NaN,,9,3,2500
+N2,1000023,bridge,B,,10,2,500
+N2,1000024,link,NaN,,11,1,800
+N2,1000025,sourcesink,,SoSi4,12,0,20

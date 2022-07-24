@@ -3,10 +3,12 @@ from random_vessel_generator import random_vessel_generator
 from first_stage_frlm import first_stage_frlm
 from second_stage_frlm import second_stage_frlm
 from generate_network import generate_network
+from visualize_placement import visualize_placement
 import pickle
 
 
-def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_per_loc, additional_nodes=0):
+def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_per_loc, additional_nodes=0,
+                                  vis=False):
     """abc
     Parameters
     ----------
@@ -22,6 +24,8 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
         Maximum number of charging modules that may be placed at a location.
     additional_nodes: int
         Number of additional nodes that should be inserted into the original network.
+    vis: Boolean
+    If this variable is True, a visualisation is presented
     """
     G = pickle.load(open('data/network_cleaned_final.p', 'rb'))
     df_h = pickle.load(open("data/revised_cleaning_results/harbour_data_100.p", "rb"))
@@ -44,10 +48,13 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
                                             additional_nodes=inserted)
 
     # execute second stage
-    optimal_facilities, optimal_flows, non_zero_flows, supported_flow = second_stage_frlm(stations_to_place,
+    optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported = second_stage_frlm(stations_to_place,
                                                                                           station_cap, max_per_loc,
                                                                                           df_g, df_b, df_eq_fq)
     supported_fraction = (supported_flow/total_flow)
 
-    return total_flow, supported_fraction, optimal_facilities, non_zero_flows
+    if vis:
+        visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
+
+    return total_flow, supported_fraction, optimal_facilities, non_zero_flows, routes_supported
 
