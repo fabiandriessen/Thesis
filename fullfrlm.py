@@ -63,11 +63,11 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     
     served_fraction = (supported_flow/max_supported)
 
-    df_nodes_abm, df_links_abm = create_input_data_abm(G, paths, non_zero_flows, optimal_facilities)
+    df_abm = create_input_data_abm(G, paths, non_zero_flows, optimal_facilities)
 
     if vis:
         visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
 
     return total_flow, fraction_captured_total, serveable_fraction, served_fraction,\
-           optimal_facilities, non_zero_flows, routes_supported, paths, G, df_nodes_abm, df_links_abm
+           optimal_facilities, non_zero_flows, routes_supported, paths, G, df_abm, flows
 

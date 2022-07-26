@@ -1,7 +1,7 @@
 from mesa import Model
 from mesa.time import BaseScheduler
 from mesa.space import ContinuousSpace
-from components import Source, Sink, SourceSink, Bridge, Link, Intersection
+from components import Source, Sink, Harbour, Charging_station, Link, Intersection
 import pandas as pd
 from collections import defaultdict
 import networkx as nx
@@ -26,7 +26,7 @@ def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
 
 
 # ---------------------------------------------------------------
-class BangladeshModel(Model):
+class VesselElectrification(Model):
     """
     The main (top-level) simulation model
 
@@ -38,7 +38,7 @@ class BangladeshModel(Model):
     step_time: int
         step_time = 1 # 1 step is 1 min
 
-    path_ids_dict: defaultdict
+    path_ids_dict: default-dict
         Key: (origin, destination)
         Value: the shortest path (Infra component IDs) from an origin to a destination
 
@@ -151,12 +151,12 @@ class BangladeshModel(Model):
                 elif model_type == 'sink':
                     agent = Sink(row['id'], self, row['length'], name, row['road'])
                     self.sinks.append(agent.unique_id)
-                elif model_type == 'sourcesink':
-                    agent = SourceSink(row['id'], self, row['length'], name, row['road'])
+                elif model_type == 'harbour':
+                    agent = Harbour(row['id'], self, row['length'], name, row['road'])
                     self.sources.append(agent.unique_id)
                     self.sinks.append(agent.unique_id)
-                elif model_type == 'bridge':
-                    agent = Bridge(row['id'], self, row['length'], name, row['road'], row['condition'])
+                elif model_type == 'heer':
+                    agent = Charging_station(row['id'], self, row['length'], name, row['road'], row['condition'])
                 elif model_type == 'link':
                     agent = Link(row['id'], self, row['length'], name, row['road'])
                 elif model_type == 'intersection':
