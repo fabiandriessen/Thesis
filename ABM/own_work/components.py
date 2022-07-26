@@ -20,11 +20,10 @@ class Infra(Agent):
     """
 
     def __init__(self, unique_id, model, length=0,
-                 name='Unknown', road_name='Unknown'):
+                 name='Unknown'):
         super().__init__(unique_id, model)
         self.length = length
         self.name = name
-        self.road_name = road_name
         self.vessel_count = 0
 
     def step(self):
@@ -121,9 +120,14 @@ class Harbour(Source, Sink):
 
 
 # ---------------------------------------------------------------
-class ChargingStation(Source, Sink):
+class ChargingStation(Infra):
+    def __init__(self, charging_stations, capacity, modules, unique_id, model):
+        super().__init__(unique_id, model)
+        charging_stations = charging_stations
+        capacity = capacity
+        modules = modules
     """
-    Generates and removes Vessels
+    Charges Vessels 
     """
     pass
 
@@ -144,9 +148,11 @@ class HarbourChargingStation(Harbour, ChargingStation):
 
     """
 
-    def __init__(self, unique_id, model, length=0,
-                 name='Unknown', road_name='Unknown'):
-        super().__init__(unique_id, model, length, name, road_name)
+    def __init__(self, charging_stations, capacity, modules, unique_id, model):
+        super().__init__(unique_id, model)
+        charging_stations = charging_stations
+        capacity = capacity
+        modules = modules
 
 
 # ---------------------------------------------------------------
@@ -194,7 +200,7 @@ class Vessel(Agent):
     """
 
     # 48 km/h translated into meter per min
-    speed = 48 * 1000 / 60
+    speed = 10 * 1000 / 60
     # One tick represents 1 minute
     step_time = 1
 

@@ -1,10 +1,12 @@
 from mesa import Model
 from mesa.time import BaseScheduler
 from mesa.space import ContinuousSpace
-from components import Source, Sink, Harbour, Charging_station, Link, Intersection
+from components import Source, Sink, Harbour, ChargingStation, HarbourChargingStation, Link, Intersection
 import pandas as pd
 from collections import defaultdict
 import networkx as nx
+import pickle
+
 
 # ---------------------------------------------------------------
 def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
@@ -56,18 +58,18 @@ class VesselElectrification(Model):
     step_time = 1
 
     # file_name = '../data/demo-4.csv'
-    file_name = '../data/df_road_N1andN2.csv'
+    file_name = 'data/df_abm.csv'
 
     def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
-
         self.schedule = BaseScheduler(self)
         self.running = True
-        self.path_ids_dict = defaultdict(lambda: pd.Series())
+        self.path_ids_dict = pickle.load(open('data/paths.p', 'rb'))
         self.space = None
-        self.sources = []
-        self.sinks = []
-        self.G = nx.Graph()
-
+        self.G = pickle.load(open('data/network.p', 'rb'))
+        self.data = pd.read_csv('data/df_abm.csv')
+        self.harbours = list(self.data.loc[(self.data.model_type == 'harbour') |
+                                           (self.data.model_type == 'harbour_with_charging')].node_id)
+        self.links = []
         self.generate_model()
 
     def generate_model(self):
@@ -77,54 +79,11 @@ class VesselElectrification(Model):
         Warning: the labels are the same as the csv column labels
         """
 
-        df = pd.read_csv(self.file_name)
-
-        # a list of names of roads to be generated
-        # TODO You can also read in the road column to generate this list automatically
-        # roads = ['N1', 'N2']
-
-        roads = ['N1', 'N2', 'N105', 'N102', 'N104', 'N204', 'N207']
-
-        # roads = df['road'].unique()
-
-        df_objects_all = []
-        for road in roads:
-            # Select all the objects on a particular road in the original order as in the cvs
-            df_objects_on_road = df[df['road'] == road]
-
-            if not df_objects_on_road.empty:
-                df_objects_all.append(df_objects_on_road)
-
-                """
-                Set the path 
-                1. get the serie of object IDs on a given road in the cvs in the original order
-                2. add the (straight) path to the path_ids_dict
-                3. put the path in reversed order and reindex
-                4. add the path to the path_ids_dict so that the vehicles can drive backwards too
-                """
-                path_ids = df_objects_on_road['id']
-                path_ids.reset_index(inplace=True, drop=True)
-                self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                self.path_ids_dict[path_ids[0], None] = path_ids
-                path_ids = path_ids[::-1]
-                path_ids.reset_index(inplace=True, drop=True)
-                self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                self.path_ids_dict[path_ids[0], None] = path_ids
-
-                """
-                Create NetworkX Graph road by road (path by path)
-                """
-                path_G = nx.path_graph(path_ids)
-                self.G.add_nodes_from(path_G)
-                self.G.add_edges_from(path_G.edges)
-
-        # put back to df with selected roads so that min and max and be easily calculated
-        df = pd.concat(df_objects_all)
         y_min, y_max, x_min, x_max = set_lat_lon_bound(
-            df['lat'].min(),
-            df['lat'].max(),
-            df['lon'].min(),
-            df['lon'].max(),
+            self.data['Y'].min(),
+            self.data['Y'].max(),
+            self.data['X'].min(),
+            self.data['X'].max(),
             0.05
         )
 
@@ -132,41 +91,36 @@ class VesselElectrification(Model):
         # not to be confused with the SimpleContinuousModule visualization
         self.space = ContinuousSpace(x_max, y_max, True, x_min, y_min)
 
-        for df in df_objects_all:
+        for df in self.data:
             for _, row in df.iterrows():  # index, row in ...
-
                 # create agents according to model_type
+
                 model_type = row['model_type'].strip()
                 agent = None
 
                 name = row['name']
                 if pd.isna(name):
                     name = ""
+                    print("error, nameless entry")
                 else:
                     name = name.strip()
 
-                if model_type == 'source':
-                    agent = Source(row['id'], self, row['length'], name, row['road'])
-                    self.sources.append(agent.unique_id)
-                elif model_type == 'sink':
-                    agent = Sink(row['id'], self, row['length'], name, row['road'])
-                    self.sinks.append(agent.unique_id)
+                if model_type == 'link':
+                    agent = Link(row['id'], self, row['length_m'], name)
+                    self.links.append(agent.unique_id)
+                elif model_type == 'harbour_with_charging':
+                    agent = HarbourChargingStation(row['id'], self, name)
                 elif model_type == 'harbour':
-                    agent = Harbour(row['id'], self, row['length'], name, row['road'])
-                    self.sources.append(agent.unique_id)
-                    self.sinks.append(agent.unique_id)
-                elif model_type == 'heer':
-                    agent = Charging_station(row['id'], self, row['length'], name, row['road'], row['condition'])
-                elif model_type == 'link':
-                    agent = Link(row['id'], self, row['length'], name, row['road'])
-                elif model_type == 'intersection':
-                    if not row['id'] in self.schedule._agents:
-                        agent = Intersection(row['id'], self, row['length'], name, row['road'])
+                    agent = Harbour(row['id'], self, row['length'], name)
+                elif model_type == 'charging_station':
+                    agent = ChargingStation(row['id'], self, row['length'], name)
+                elif (model_type == 'inserted_node') or (model_type == 'intermediate_node'):
+                    agent = Intersection(row['id'], self, row['length'], name)
 
                 if agent:
                     self.schedule.add(agent)
-                    y = row['lat']
-                    x = row['lon']
+                    y = row['Y']
+                    x = row['X']
                     self.space.place_agent(agent, (x, y))
                     agent.pos = (x, y)
 
