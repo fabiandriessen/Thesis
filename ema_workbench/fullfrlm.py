@@ -41,20 +41,30 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     # generate random data
     df_random = random_vessel_generator(df_ivs, load)
     flows = flow_computation(df_random)
-    total_flow = sum(flows.values())
+    
 
     # execute first stage, with or without additional nodes
-    df_b, df_g, df_eq_fq = first_stage_frlm(r, G, OD=flows, paths=paths, path_lengths=path_lengths, df_h=df_h,
+    df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths, path_lengths=path_lengths, df_h=df_h,
                                             additional_nodes=inserted)
 
     # execute second stage
-    optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported = second_stage_frlm(stations_to_place,
+    optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported, extra_nodes_used = second_stage_frlm(stations_to_place,
                                                                                           station_cap, max_per_loc,
                                                                                           df_g, df_b, df_eq_fq)
-    supported_fraction = (supported_flow/total_flow)
-
+    # collect data
+    total_flow = sum(flows.values())
+    
+    max_supported = {i:flows[i] for i in flows if len(feasible_combinations[i])>0}
+    max_supported = sum(max_supported.values())
+    
+    fraction_captured_total = (supported_flow/total_flow)
+    
+    serveable_fraction = (max_supported/total_flow)
+    
+    served_fraction = (supported_flow/max_supported)
+    
     if vis:
         visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
 
-    return total_flow, supported_fraction, optimal_facilities, non_zero_flows, routes_supported
+    return total_flow, fraction_captured_total, serveable_fraction, served_fraction, routes_supported, extra_nodes_used
 

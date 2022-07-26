@@ -102,7 +102,13 @@ def second_stage_frlm(p, c, max_per_loc, df_g, df_b, df_eq_fq):
             a = (re.sub('''["'_']''', "", i[16:35]).split(','))
             a = tuple([a[0], a[1], int(a[2])])
             non_zero_flows[a] = optimal_flows[i]
+            
+    extra_nodes_used = 0
+    for i in optimal_facilities.keys():
+        if (len(str(i))<4) and (optimal_facilities[i]>0):
+            extra_nodes_used+=1        
+    
+    routes_supported = list(non_zero_flows.keys())
+    routes_supported = float(len(routes_supported))
 
-    routes_supported = len(non_zero_flows.keys())
-
-    return optimal_facilities, optimal_flows, non_zero_flows, value(model.objective), routes_supported
+    return optimal_facilities, optimal_flows, non_zero_flows, value(model.objective), routes_supported, float(extra_nodes_used)

@@ -148,7 +148,8 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
     for route_key, combinations in feasible_combinations.items():
         if len(combinations) > 1:
             feasible_combinations[route_key] = get_minimal_subsets(feasible_combinations[route_key])
-
+    
+    
     # Reformat data: create two dicts one with b_qh values and one with g_qhk values
     # first create list of all possible combinations
     unique_combinations = []
@@ -205,4 +206,4 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
     df_eq_fq = pd.DataFrame.from_dict(dict_eq_fq)
     df_eq_fq.set_index('q', inplace=True)
 
-    return df_b, df_g, df_eq_fq
+    return df_b, df_g, df_eq_fq, feasible_combinations
