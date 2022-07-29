@@ -162,6 +162,7 @@ class HarbourChargingStation(Infra):
         self.vessel_removed_toggle = not self.vessel_removed_toggle
         print(str(self) + ' REMOVE ' + str(vessel))
 
+
 # ---------------------------------------------------------------
 class Vessel(Agent):
     """
@@ -206,43 +207,38 @@ class Vessel(Agent):
 
     """
 
-    # 48 km/h translated into meter per min
-    speed = 10 * 1000 / 60
-    # One tick represents 1 minute
-    step_time = 1
-
     class State(Enum):
         DRIVE = 1
         WAIT = 2
 
-    def __init__(self, unique_id, model, generated_by,
-                 location_offset=0, path_ids=None):
+    def __init__(self, unique_id, model, generated_by, path, ship_type, battery_size, combi, location_offset=0):
         super().__init__(unique_id, model)
         self.generated_by = generated_by
         self.generated_at_step = model.schedule.steps
         self.location = generated_by
         self.location_offset = location_offset
         self.pos = generated_by.pos
-        self.path_ids = path_ids
+        self.path = path
         # default values
         self.state = Vessel.State.DRIVE
         self.location_index = 0
         self.waiting_time = 0
         self.waited_at = None
         self.removed_at_step = None
+        # 10 km/h translated into meter per min
+        self.speed = 10 * 1000 / 60
+        # One tick represents 1 minute
+        self.step_time = 1
+        # ship characteristics
+        self.ship_type = ship_type
+        self.combi = combi
+        self.battery_size = battery_size
 
     def __str__(self):
         return "Vessel" + str(self.unique_id) + \
                " +" + str(self.generated_at_step) + " -" + str(self.removed_at_step) + \
                " " + str(self.state) + '(' + str(self.waiting_time) + ') ' + \
                str(self.location) + '(' + str(self.location.vessel_count) + ') ' + str(self.location_offset)
-
-    # TODO Why a random path?
-    def set_path(self):
-        """
-        Set the origin destination path of the vessel
-        """
-        self.path_ids = self.model.get_random_route(self.generated_by.unique_id)
 
     def step(self):
         """
@@ -285,7 +281,7 @@ class Vessel(Agent):
         next_id = self.path_ids[self.location_index]
         next_infra = self.model.schedule._agents[next_id]  # Access to protected member _agents
 
-        if isinstance(next_infra, Sink):
+        if isinstance(next_infra, Harbour) or isinstance(next_infra, HarbourChargingStation):
             # arrive at the sink
             self.arrive_at_next(next_infra, 0)
             self.removed_at_step = self.model.schedule.steps

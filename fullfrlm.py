@@ -80,6 +80,7 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     df_random = df_random.loc[df_random.key.isin(non_zero_flows.keys())]
     df_random = df_random.loc[df_random.trip_count != 0]
 
+    pickle.dump(feasible_combinations, open('ABM/own_work/data/feasible_comb.p', 'wb'))
     pickle.dump(G, open("ABM/own_work/data/network.p", "wb"))
     pickle.dump(paths, open("ABM/own_work/data/paths.p", "wb"))
     pickle.dump(df_abm, open("ABM/own_work/data/df_abm.p", "wb"))

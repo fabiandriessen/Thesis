@@ -1,7 +1,7 @@
 from mesa import Model
 from mesa.time import BaseScheduler
 from mesa.space import ContinuousSpace
-from components import Harbour, HarbourChargingStation, ChargingStation, Link, Intersection
+from components import Harbour, HarbourChargingStation, ChargingStation, Link, Intersection, Vessel
 import pandas as pd
 from collections import defaultdict
 import networkx as nx
@@ -57,9 +57,6 @@ class VesselElectrification(Model):
 
     step_time = 1
 
-    # file_name = '../data/demo-4.csv'
-    file_name = 'data/df_abm.csv'
-
     def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
         self.schedule = BaseScheduler(self)
         self.running = True
@@ -76,6 +73,8 @@ class VesselElectrification(Model):
         self.inserted_nodes = []
         self.hour = 0
         self.charging_station_capacity = 5
+        self.battery_sizes = pickle.load(open('data/flow_comp_factors.p', 'rb'))
+        self.feasible_combinations = pickle.load(open('ABM/own_work/data/feasible_comb.p', 'rb'))
 
         self.generate_model()
 
@@ -129,19 +128,34 @@ class VesselElectrification(Model):
                 self.space.place_agent(agent, (x, y))
                 agent.pos = (x, y)
 
-    def get_route(self, origin, destination, route_v):
+    def get_route(self, harbour, key):
         # return route
-        if (origin, destination, route_v) in self.path_ids_dict:
-            return self.path_ids_dict[origin, destination, route_v]
+        if (harbour == key[0]) and (key in self.path_ids_dict):
+            return self.path_ids_dict[key] + self.path_ids_dict[key][::-1]
         # return reversed route
-        elif (destination, origin, route_v) in self.path_ids_dict:
-            return self.path_ids_dict[destination, origin, route_v][::-1]
+        elif (harbour == key[1]) and (key in self.path_ids_dict):
+            return self.path_ids_dict[key][::-1] + self.path_ids_dict[key]
         # else raise error, because something is off...
         else:
-            print("Error route not found for vessel", self, "travelling (from, to, viaroute):", origin, destination,
-                  route_v)
+            print("Error route not found for vessel", self, "travelling (from, to, viaroute):", key)
             self.running = False
 
+    # def generate_vessel(self):
+    #     """
+    #     Generates a vessel, sets its path, increases the global and local counters
+    #     """
+    #     try:
+    #         agent = Vessel('Truck' + str(Harbour.vessel_counter), self.model, self)
+    #         if agent:
+    #             self.model.schedule.add(agent)
+    #             agent.set_path()
+    #             Source.truck_counter += 1
+    #             self.vehicle_count += 1
+    #             self.vehicle_generated_flag = True
+    #             print(str(self) + " GENERATE " + str(agent))
+    #     except Exception as e:
+    #         print("Oops!", e.__class__, "occurred.")
+    #
     def step(self):
         """
         Advance the simulation by one step.
@@ -157,9 +171,12 @@ class VesselElectrification(Model):
 
         type_list = list(self.ivs_data.iloc[:, 4:-2])
         df_1 = self.ivs_data.loc[(self.ivs_data.hour == self.hour)]
+        harbours = list(set(list(df_1.origin.unique()) + list(df_1.destination.unique())))
 
-        for harbour in list(set(list(df_1.origin.unique()) + list(df_1.destination.unique()))):
+        # for each harbour
+        for harbour in harbours:
             a = df_1.loc[(df_1.origin == harbour) | (df_1.destination == harbour)]
+            # for each origin destination pair that this harbour is part of
             for i, j in enumerate(a.index):
                 # chance that a vessel is generated is equal to 1/2 (either spawn at origin or dest) * trip_count/365
                 # (because trip_count is yearly) *(time_step/hours)
@@ -170,6 +187,12 @@ class VesselElectrification(Model):
                     ship_type = np.random.choice(a=to_pick, size=1, replace=True, p=prob)
                     print(ship_type, "Vessel departed at", df_1.origin[j], self.hour, ':', self.schedule.time,
                           "heading to", df_1.destination[j], "via route", df_1.key[j])
+                    path = self.get_route(harbour, df_1.key[j])
+                    print(self.schedule.agents)
+                    # generated_by = self.schedule.agents[path[0]]
+                    # battery_size = self.battery_sizes[ship_type]
+                    # combi = np.random.choice(self.feasible_combinations[df_1.key[j]])
+                    # agent = Vessel(self, generated_by, path, ship_type, battery_size, combi)
                     # now this vessel must be placed at origin/dest
 
 # EOF -----------------------------------------------------------
