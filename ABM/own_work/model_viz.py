@@ -1,7 +1,7 @@
 from mesa.visualization.ModularVisualization import ModularServer
 from ContinuousSpace.SimpleContinuousModule import SimpleCanvas
-from model import BangladeshModel
-from components import Source, Sink, Bridge, Link, Intersection, Infra
+from model import VesselElectrification
+from components import Intersection, Harbour, ChargingStation, HarbourChargingStation, Link, Infra
 
 """
 Run simulation with Visualization 
@@ -28,14 +28,13 @@ def agent_portrayal(agent):
         # "h": max(agent.population / 100000 * 4, 4)
     }
 
-    if isinstance(agent, Source):
-        if agent.vehicle_generated_flag:
+    if (isinstance(agent, Harbour)) or (isinstance(agent, HarbourChargingStation)):
+        if agent.vessel_generated_flag:
             portrayal["Color"] = "green"
         else:
             portrayal["Color"] = "red"
 
-    elif isinstance(agent, Sink):
-        if agent.vehicle_removed_toggle:
+        if agent.vessel_removed_toggle:
             portrayal["Color"] = "LightSkyBlue"
         else:
             portrayal["Color"] = "LightPink"
@@ -46,18 +45,18 @@ def agent_portrayal(agent):
     elif isinstance(agent, Intersection):
         portrayal["Color"] = "DeepPink"
 
-    elif isinstance(agent, Bridge):
+    elif isinstance(agent, ChargingStation):
         portrayal["Color"] = "dodgerblue"
 
-    if isinstance(agent, (Source, Sink)):
+    if isinstance(agent, (Harbour, HarbourChargingStation)):
         portrayal["r"] = 5
     elif isinstance(agent, Infra):
-        portrayal["r"] = max(agent.vehicle_count * 4, 2)
+        portrayal["r"] = max(agent.vessel_count * 4, 2)
 
     # define text labels
-    if isinstance(agent, Infra) and agent.name != "":
-        portrayal["Text"] = agent.name
-        portrayal["Text_color"] = "DarkSlateGray"
+    # if isinstance(agent, Infra) and agent.name != "":
+    #     portrayal["Text"] = agent.name
+    #     portrayal["Text_color"] = "DarkSlateGray"
 
     return portrayal
 
@@ -73,7 +72,7 @@ canvas_height = 400
 
 space = SimpleCanvas(agent_portrayal, canvas_width, canvas_height)
 
-server = ModularServer(BangladeshModel,
+server = ModularServer(VesselElectrification,
                        [space],
                        "Transport Model Demo",
                        {"seed": 1234567})

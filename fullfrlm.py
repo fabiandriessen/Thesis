@@ -85,6 +85,7 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     pickle.dump(df_abm, open("ABM/own_work/data/df_abm.p", "wb"))
     pickle.dump(df_random, open("ABM/own_work/data/df_random.p", "wb"))
     pickle.dump(non_zero_flows, open("ABM/own_work/data/non_zero_flows.p", "wb"))
+    df_abm.to_csv('ABM/own_work/data/df_abm.csv')
 
     return total_flow, fraction_captured_total, serveable_fraction, served_fraction, optimal_facilities, \
         non_zero_flows, routes_supported, paths, G, df_abm, df_random

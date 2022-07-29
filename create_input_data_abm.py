@@ -70,8 +70,9 @@ def create_input_data_abm(G, paths, non_zero_flows, optimal_facilities):
     df_links['charging_stations'] = np.nan
     df_links['model_type'] = 'link'
     df_abm = pd.concat([df_links, df_nodes])
-
+    df_abm.reset_index(drop=True, inplace=True)
     df_abm.reset_index(inplace=True)
     df_abm.rename(columns={'index': 'id'}, inplace=True)
+    df_abm.id = df_abm.id.apply(lambda x: x + 1000)
 
     return df_abm

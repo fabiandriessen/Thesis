@@ -67,6 +67,7 @@ class BangladeshModel(Model):
         self.sources = []
         self.sinks = []
         self.G = nx.Graph()
+        self.hour = 0
 
         self.generate_model()
 
@@ -197,5 +198,12 @@ class BangladeshModel(Model):
         Advance the simulation by one step.
         """
         self.schedule.step()
+
+        if self.schedule.time % 59:
+            if (self.hour + 1) < 24:
+                self.hour += 1
+            else:
+                self.hour = 0
+        print(self.hour)
 
 # EOF -----------------------------------------------------------

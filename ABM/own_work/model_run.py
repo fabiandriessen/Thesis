@@ -1,4 +1,4 @@
-from model import BangladeshModel
+from model import VesselElectrification
 
 """
     Run simulation
@@ -15,7 +15,7 @@ run_length = 5 * 24 * 60
 
 seed = 1234567
 
-sim_model = BangladeshModel(seed=seed)
+sim_model = VesselElectrification(seed=seed)
 
 # Check if the seed is set
 print("SEED " + str(sim_model._seed))

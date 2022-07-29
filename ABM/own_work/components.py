@@ -32,6 +32,7 @@ class Infra(Agent):
     def __str__(self):
         return type(self).__name__ + str(self.unique_id)
 
+
 # ---------------------------------------------------------------
 class Link(Infra):
     pass
@@ -43,28 +44,8 @@ class Intersection(Infra):
 
 
 # ---------------------------------------------------------------
-class Sink(Infra):
-    """
-    Sink removes vessels
 
-    Attributes
-    __________
-    vessel_removed_toggle: bool
-        toggles each time when a vessel is removed
-    ...
-
-    """
-    vessel_removed_toggle = False
-
-    def remove(self, vessel):
-        self.model.schedule.remove(vessel)
-        self.vessel_removed_toggle = not self.vessel_removed_toggle
-        print(str(self) + ' REMOVE ' + str(vessel))
-
-
-# ---------------------------------------------------------------
-
-class Source(Infra):
+class Harbour(Infra):
     """
     Source generates vessels
 
@@ -80,19 +61,28 @@ class Source(Infra):
 
     vessel_generated_flag: bool
         True when a vessel is generated in this tick; False otherwise
+
+    vessel_removed_toggle: bool
+        toggles each time when a vessel is removed
     ...
 
     """
-
-    vessel_counter = 0
-    generation_frequency = 5
-    vessel_generated_flag = False
+    def __init__(self, unique_id, model, length, name):
+        super().__init__(unique_id, model)
+        self.length = length
+        self.name = name
+        self.vessel_removed_toggle = False
+        self.vessel_counter = 0
+        self.vessel_generated_flag = False
 
     def step(self):
-        if self.model.schedule.steps % self.generation_frequency == 0:
-            self.generate_vessel()
-        else:
-            self.vessel_generated_flag = False
+        # Current plan: vessels generated in step function of the model
+        pass
+
+        # if self.model.schedule.steps % self.generation_frequency == 0:
+        #     self.generate_vessel()
+        # else:
+        #     self.vessel_generated_flag = False
 
     def generate_vessel(self):
         """
@@ -110,22 +100,24 @@ class Source(Infra):
         except Exception as e:
             print("Oops!", e.__class__, "occurred.")
 
-
-# ---------------------------------------------------------------
-class Harbour(Source, Sink):
-    """
-    Generates and removes Vessels
-    """
-    pass
+    def remove(self, vessel):
+        self.model.schedule.remove(vessel)
+        self.vessel_removed_toggle = not self.vessel_removed_toggle
+        print(str(self) + ' REMOVE ' + str(vessel))
 
 
 # ---------------------------------------------------------------
 class ChargingStation(Infra):
-    def __init__(self, charging_stations, capacity, modules, unique_id, model):
+    def __init__(self, unique_id, model, charging_stations, length, name):
         super().__init__(unique_id, model)
-        charging_stations = charging_stations
-        capacity = capacity
-        modules = modules
+        self.modules = charging_stations
+        self.length = length
+        self.name = name
+
+        self.charging_speed = (24/self.model.charging_station_capacity)
+        self.available_spots = self.modules
+        self.waiting_line = []
+
     """
     Charges Vessels 
     """
@@ -133,7 +125,7 @@ class ChargingStation(Infra):
 
 
 # ---------------------------------------------------------------
-class HarbourChargingStation(Harbour, ChargingStation):
+class HarbourChargingStation(Infra):
     """
     Creates delay time
 
@@ -148,12 +140,27 @@ class HarbourChargingStation(Harbour, ChargingStation):
 
     """
 
-    def __init__(self, charging_stations, capacity, modules, unique_id, model):
+    def __init__(self, unique_id, model, charging_stations, length, name):
         super().__init__(unique_id, model)
-        charging_stations = charging_stations
-        capacity = capacity
-        modules = modules
+        self.length = length
+        self.name = name
+        self.vessel_removed_toggle = False
+        self.vessel_counter = 0
+        self.generation_frequency = 5
+        self.vessel_generated_flag = False
+        self.modules = charging_stations
+        self.charging_speed = (24/self.model.charging_station_capacity)
+        self.available_spots = self.modules
+        self.waiting_line = []
 
+    def step(self):
+        # Current plan: vessels generated in step function of the model
+        pass
+
+    def remove(self, vessel):
+        self.model.schedule.remove(vessel)
+        self.vessel_removed_toggle = not self.vessel_removed_toggle
+        print(str(self) + ' REMOVE ' + str(vessel))
 
 # ---------------------------------------------------------------
 class Vessel(Agent):
