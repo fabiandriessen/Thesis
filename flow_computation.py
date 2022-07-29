@@ -12,7 +12,7 @@ def flow_computation(df):
     ship_data = pd.read_excel('data/ship_types.xlsx')
     ship_data.fillna(0, inplace=True)
     ship_data = dict(zip(ship_data['RWS-class'], ship_data['Factor']))
-    pickle.dump(ship_data, open("data/flow_comp_factors.p", "wb"))
+    # pickle.dump(ship_data, open("data/flow_comp_factors.p", "wb"))
 
     # prepare dataframe
     df = df.groupby(by=['origin', 'destination', 'route_v']).sum().reset_index().drop(columns=['hour'])

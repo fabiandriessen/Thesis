@@ -44,9 +44,9 @@ def random_vessel_generator(df_prob, load=1):
             # store trip count data previous draw
             if pair in temp_type_dict_r.keys():
                 main_dict['trip_count'].append(temp_type_dict_r[pair])
-                main_dict['origin'].append(df_temp.origin[i])
-                main_dict['destination'].append(df_temp.destination[i])
-                main_dict['route_v'].append(df_temp.route_v[i])
+                main_dict['origin'].append(df_temp.origin[pair])
+                main_dict['destination'].append(df_temp.destination[pair])
+                main_dict['route_v'].append(df_temp.route_v[pair])
                 main_dict['hour'].append(i)
                 # print(main_dict['trip_count'])
                 # determine parameters to randomly draw ship types for each OD pair
