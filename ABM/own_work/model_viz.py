@@ -67,8 +67,8 @@ Launch the animation server
 Open a browser tab 
 """
 
-canvas_width = 400
-canvas_height = 400
+canvas_width = 1000
+canvas_height = 1000
 
 space = SimpleCanvas(agent_portrayal, canvas_width, canvas_height)
 
