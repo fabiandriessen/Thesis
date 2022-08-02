@@ -56,9 +56,7 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
 
     # execute second stage
     optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported = second_stage_frlm(
-        stations_to_place,
-        station_cap, max_per_loc,
-        df_g, df_b, df_eq_fq)
+        r, 15000, 175, stations_to_place, station_cap, max_per_loc, df_g, df_b, df_eq_fq)
     # collect data
     total_flow = sum(flows.values())
 
