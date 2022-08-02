@@ -1,5 +1,6 @@
 from pulp import *
 import re
+import pickle
 
 
 def second_stage_frlm(p, c, max_per_loc, df_g, df_b, df_eq_fq):
@@ -97,11 +98,18 @@ def second_stage_frlm(p, c, max_per_loc, df_g, df_b, df_eq_fq):
     optimal_flows = {i: output_dict[i] for i in output_dict.keys() if 'captured' in i}
 
     non_zero_flows = {}
-    for i in optimal_flows.keys():
-        if optimal_flows[i] != 0:
-            a = (re.sub('''["'_']''', "", i[16:35]).split(','))
+    for key, item in optimal_flows.items():
+        if item != 0:
+            a = (re.sub('''["'_']''', "", key[16:35]).split(','))
             a = tuple([a[0], a[1], int(a[2])])
-            non_zero_flows[a] = optimal_flows[i]
+            non_zero_flows[a] = {'combinations': [], 'flows': []}
+
+    for key, item in optimal_flows.items():
+        if item != 0:
+            a = (re.sub('''["'_']''', "", key[16:35]).split(','))
+            a = tuple([a[0], a[1], int(a[2])])
+            non_zero_flows[a]['combinations'].append(key[40:-4].split("',_'"))
+            non_zero_flows[a]['flows'].append(item)
 
     routes_supported = float(len(non_zero_flows.keys()))
 

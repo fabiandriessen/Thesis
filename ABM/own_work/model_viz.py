@@ -23,7 +23,7 @@ def agent_portrayal(agent):
         "Shape": "circle",  # rect | circle
         "Filled": "true",
         "Color": "Khaki",
-        "r": 2
+        "r": 2,
         # "w": max(agent.population / 100000 * 4, 4),  # for "Shape": "rect"
         # "h": max(agent.population / 100000 * 4, 4)
     }

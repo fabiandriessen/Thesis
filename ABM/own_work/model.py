@@ -61,11 +61,11 @@ class VesselElectrification(Model):
     def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
         self.schedule = BaseScheduler(self)
         self.running = True
-        self.path_ids_dict = pickle.load(open('data/paths.p', 'rb'))
+        self.path_ids_dict = pickle.load(open('data/paths.p', 'rb'))  # paths for the network inc. any added nodes
         self.space = None
-        self.G = pickle.load(open('data/network.p', 'rb'))
-        self.ivs_data = pickle.load(open('data/df_random.p', 'rb'))
-        self.data = pd.read_csv('data/df_abm.csv')
+        self.G = pickle.load(open('data/network.p', 'rb'))  # the actual network as generated inc. any added nodes
+        self.ivs_data = pickle.load(open('data/df_random.p', 'rb'))  # random dataset to base generation on
+        self.data = pd.read_csv('data/df_abm.csv')  # all information regarding different links, harbours, etc.
         self.intermediate_nodes = []
         self.harbours = []
         self.harbours_with_charging = []
@@ -73,9 +73,13 @@ class VesselElectrification(Model):
         self.charging_stations = []
         self.inserted_nodes = []
         self.hour = 0
-        self.charging_station_capacity = 5
-        self.battery_sizes = pickle.load(open('data/flow_comp_factors.p', 'rb'))
-        self.feasible_combinations = pickle.load(open('data/feasible_comb.p', 'rb'))
+        self.charging_station_capacity = self.data.capacity.iloc[0]  # max charging power in KWh
+        self.range = self.data.range.iloc[0]  # range in meters
+        self.vessel_speed = 15000  # (meters/hour)
+        self.charging_speed = 2500  # kWh
+
+        self.type_engine_power = pickle.load(open('data/flow_comp_factors_unscaled.p', 'rb'))
+        self.optimal_flows = pickle.load(open('data/non_zero_flows.p', 'rb'))
 
         self.generate_model()
 
@@ -109,13 +113,15 @@ class VesselElectrification(Model):
                 agent = Link(row['name'], self, row['length_m'], row['name'])
                 self.intermediate_nodes.append(agent.unique_id)
             elif model_type == 'harbour_with_charging':
-                agent = HarbourChargingStation(row['name'], self, row['charging_stations'], row['length_m'], row['name'])
+                agent = HarbourChargingStation(row['name'], self, row['charging_stations'], self.charging_speed,
+                                               row['length_m'], row['name'])
                 self.harbours_with_charging.append(agent.unique_id)
             elif model_type == 'harbour':
                 agent = Harbour(row['name'], self, row['length_m'], row['name'])
                 self.harbours.append(agent.unique_id)
             elif model_type == 'charging_station':
-                agent = ChargingStation(row['name'], self, row['charging_stations'], row['length_m'], row['name'])
+                agent = ChargingStation(row['name'], self, row['charging_stations'], self.charging_speed,
+                                        row['length_m'], row['name'])
                 self.charging_stations.append(agent.unique_id)
             elif (model_type == 'inserted_node') or (model_type == 'intermediate_node'):
                 agent = Intersection(row['name'], self, row['length_m'], row['name'])
@@ -131,10 +137,10 @@ class VesselElectrification(Model):
     def get_route(self, harbour, key):
         # return route
         if (harbour == key[0]) and (key in self.path_ids_dict):
-            return self.path_ids_dict[key] + self.path_ids_dict[key][::-1]
+            return self.path_ids_dict[key]
         # return reversed route
         elif (harbour == key[1]) and (key in self.path_ids_dict):
-            return self.path_ids_dict[key][::-1] + self.path_ids_dict[key]
+            return self.path_ids_dict[key][::-1]
         # else raise error, because something is off...
         else:
             print("Error route not found for vessel", self, "travelling (from, to, viaroute):", key)
@@ -163,9 +169,8 @@ class VesselElectrification(Model):
             # for each origin destination pair that this harbour is part of
             for i, j in enumerate(a.index):
                 # chance that a vessel is generated is equal to 1/2 (either spawn at origin or dest) * trip_count/365
-                # (because trip_count is yearly) *(time_step/hours)
-                # pickle.dump(self.schedule._agents, open('data/schedule.p', 'wb'))
-                if 0.5 * (df_1.trip_count[j] / 365) * (1 / 60) >= np.random.random():
+                # (because trip_count is yearly) *(time_step/hours), 1/2 removed because round trip assumed
+                if (df_1.trip_count[j] / 365) * (1 / 60) >= np.random.random():
                     # determine vessel type
                     prob = list(a.iloc[i, 4:-2].values / a.iloc[i, 4:-2].sum())
                     to_pick = type_list
@@ -175,13 +180,19 @@ class VesselElectrification(Model):
                     unique_id = Harbour.vessel_counter
                     path = self.get_route(harbour, df_1.key[j])
                     generated_at = path[0]
-                    pickle.dump(self.schedule._agents, open('data/schedule.p', 'wb'))
                     generated_by = self.schedule._agents[generated_at]
-                    battery_size = self.battery_sizes[ship_type[0]]
-                    print(df_1.key[j])
-                    print(self.feasible_combinations[df_1.key[j]])
-                    combi = random.choice(self.feasible_combinations[df_1.key[j]])
-                    agent = Vessel(unique_id, self, generated_by, path, ship_type, battery_size, combi)
+                    battery_size = (self.range/self.vessel_speed)*self.type_engine_power[ship_type[0]]
+                    power = self.type_engine_power[ship_type[0]]
+                    if len(self.optimal_flows[df_1.key[j]]['combinations']) == 1:
+                        combi = self.optimal_flows[df_1.key[j]]['combinations'][0]
+                    else:
+                        pkey = self.optimal_flows[df_1.key[j]]['flows']
+                        pkey = [i/sum(pkey) for i in pkey]
+                        pick = np.random.choice(a=np.arange(len(self.optimal_flows[df_1.key[j]]['combinations'])),
+                                                size=1, replace=False, p=pkey)
+                        combi = self.optimal_flows[df_1.key[j]]['combinations'][pick.item()]
+                    print(combi)
+                    agent = Vessel(unique_id, self, generated_by, path, ship_type[0], battery_size, power, combi)
                     self.schedule.add(agent)
                     Harbour.vessel_counter += 1
 

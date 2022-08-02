@@ -5,6 +5,7 @@ from second_stage_frlm import second_stage_frlm
 from generate_network import generate_network
 from visualize_placement import visualize_placement
 from create_input_data_abm import create_input_data_abm
+from update_feasible_combinations import update_feasible_combinations
 import pickle
 
 
@@ -74,6 +75,13 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
 
     if vis:
         visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
+
+    # only keep feasible combinations that are supported by created station layout
+    feasible_combinations = update_feasible_combinations(feasible_combinations, df_abm)
+
+    # store range and capacity per day of a station?
+    df_abm['range'] = r
+    df_abm['capacity'] = station_cap
 
     # configure df random for abm
     df_random['key'] = df_random.apply(lambda x: create_key(x.origin, x.destination, x.route_v), axis=1)

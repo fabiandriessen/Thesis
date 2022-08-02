@@ -68,6 +68,7 @@ class Harbour(Infra):
 
     """
     vessel_counter = 0
+
     def __init__(self, unique_id, model, length, name):
         super().__init__(unique_id, model)
         self.length = length
@@ -87,14 +88,14 @@ class Harbour(Infra):
 
 # ---------------------------------------------------------------
 class ChargingStation(Infra):
-    def __init__(self, unique_id, model, charging_stations, length, name):
+    def __init__(self, unique_id, model, charging_stations, charging_speed, length, name):
         super().__init__(unique_id, model)
         self.modules = charging_stations
         self.length = length
         self.name = name
         # capacity is in #vessel/24 hours
-        self.charging_speed = 1/((24/self.model.charging_station_capacity)*60*60)
-        self.waiting_line = []
+        self.charging_speed = charging_speed
+        self.currently_charging = []
 
     """
     Charges Vessels 
@@ -114,7 +115,7 @@ class HarbourChargingStation(Infra):
     ...
     """
 
-    def __init__(self, unique_id, model, charging_stations, length, name):
+    def __init__(self, unique_id, model, charging_speed, charging_stations, length, name):
         super().__init__(unique_id, model)
         self.length = length
         self.name = name
@@ -123,8 +124,8 @@ class HarbourChargingStation(Infra):
         self.generation_frequency = 5
         self.vessel_generated_flag = False
         self.modules = charging_stations
-        self.charging_speed = 1/((24/self.model.charging_station_capacity)*60*60)
-        self.waiting_line = []
+        self.charging_speed = charging_speed  # KWh
+        self.currently_charging = []
 
     def step(self):
         # Current plan: vessels generated in step function of the model
@@ -184,7 +185,7 @@ class Vessel(Agent):
         DRIVE = 1
         WAIT = 2
 
-    def __init__(self, unique_id, model, generated_by, path, ship_type, battery_size, combi, location_offset=0):
+    def __init__(self, unique_id, model, generated_by, path, ship_type, battery_size, power, combi, location_offset=0):
         super().__init__(unique_id, model)
         # defined attributes
         self.generated_by = generated_by
@@ -192,6 +193,7 @@ class Vessel(Agent):
         self.ship_type = ship_type
         self.battery_size = battery_size
         self.combi = combi
+        self.power = power
 
         # secondary attributes
         self.generated_at_step = model.schedule.steps
@@ -206,16 +208,22 @@ class Vessel(Agent):
         self.waiting_time = 0
         self.waited_at = None
         self.removed_at_step = None
-        # 10 km/h translated into meter per min
-        self.speed = 10 * 1000 / 60
+        # 15 km/h translated into meter per min, maybe: different speeds for different vessel types/routes
+        self.speed = 15 * 1000 / 60
         # One tick represents 1 minute
         self.step_time = 1
 
-        # departs fully charged if charging station at harbour, otherwise half full
-        if self.location.unique_id in combi:
-            self.charge = 1
+        # departs fully charged if charging station at harbour, otherwise half full (consistent with assumption frlm)
+        if len(combi) > 1:
+            if self.location.unique_id in combi:
+                self.charge = 1 * self.battery_size
+            else:
+                self.charge = 0.5 * self.battery_size
         else:
-            self.charge = 0.5
+            if self.location.unique_id == combi[0]:
+                self.charge = 1 * self.battery_size
+            else:
+                self.charge = 0.5 * self.battery_size
 
     def __str__(self):
         return "Vessel" + str(self.unique_id) + \
@@ -235,6 +243,7 @@ class Vessel(Agent):
                 if self.waiting_time == 0:
                     self.waited_at = self.location
                     self.location.waiting_line.remove(self)
+                    self.charge = self.battery_size
                     self.state = Vessel.State.DRIVE
 
         if self.state == Vessel.State.DRIVE:
@@ -251,7 +260,11 @@ class Vessel(Agent):
         # speed is global now: can change to instance object when individual speed is needed
         distance = self.speed * self.step_time
         distance_rest = self.location_offset + distance - self.location.length
-
+        # update battery charge
+        self.charge -= (self.step_time/60) * self.power
+        if self.charge < 0:
+            print("Bug detected, negative charge")
+            self.model.running = False
         if distance_rest > 0:
             # go to the next object
             self.drive_to_next(distance_rest)
@@ -268,7 +281,8 @@ class Vessel(Agent):
         next_id = self.path_ids[self.location_index]
         next_infra = self.model.schedule._agents[next_id]  # Access to protected member _agents
 
-        if (next_id == self.location.unique_id) and (self.location_index != 0):
+        if next_id == self.path_ids[-1]:
+            print('arrived')
             # arrive at the sink
             self.arrive_at_next(next_infra, 0)
             self.removed_at_step = self.model.schedule.steps
@@ -276,14 +290,22 @@ class Vessel(Agent):
             return
 
         elif isinstance(next_infra, ChargingStation) or isinstance(next_infra, HarbourChargingStation):
-            if next_infra.unique_id in self.combi:
-                self.waiting_time = self.get_charging_time(next_infra)
-                if self.waiting_time > 0:
+            if len(self.combi) > 1:
+                if next_infra.unique_id in self.combi:
+                    self.waiting_time = self.get_charging_time(next_infra)
                     # arrive at the bridge and wait
                     self.arrive_at_next(next_infra, 0)
                     self.state = Vessel.State.WAIT
                     return
-                # else, continue driving
+                    # else, continue driving
+            else:
+                if next_infra.unique_id == self.combi[0]:
+                    self.waiting_time = self.get_charging_time(next_infra)
+                    # arrive at the bridge and wait
+                    self.arrive_at_next(next_infra, 0)
+                    self.state = Vessel.State.WAIT
+                    return
+                    # else, continue driving
 
         if next_infra.length > distance:
             # stay on this object:
@@ -303,14 +325,16 @@ class Vessel(Agent):
 
     def get_charging_time(self, cs):
         # 1 step = 1 min
-        if len(cs.waiting_line) < cs.modules:
+        if len(cs.currently_charging) < cs.modules:
             charge_needed = self.battery_size * self.charge
-            charging_time = charge_needed/cs.charging_speed
-            cs.waiting_line.append(self)
+            charging_time = (charge_needed/cs.charging_speed) * 60  # times 60 to convert from hours to minutes
+            cs.currently_charging.append(self)
+            # battery is fully charged after stop
+            self.charge = self.battery_size
             self.inline = False
         else:
-            charging_time = 1e6
-            self.inline = True
+            charging_time = 1e6  # just here for safety
+            self.inline = True  # inline until waiting line decreases
 
         return charging_time
 
