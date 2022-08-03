@@ -1,7 +1,7 @@
 from mesa.visualization.ModularVisualization import ModularServer
 from ContinuousSpace.SimpleContinuousModule import SimpleCanvas
 from model import VesselElectrification
-from components import Intersection, Harbour, ChargingStation, HarbourChargingStation, Link, Infra
+from components import Intersection, Harbour, ChargingStation, HarbourChargingStation, Link, Infra, Vessel
 
 """
 Run simulation with Visualization 
@@ -47,6 +47,9 @@ def agent_portrayal(agent):
 
     elif isinstance(agent, ChargingStation):
         portrayal["Color"] = "dodgerblue"
+
+    elif isinstance(agent, Vessel):
+        portrayal['Color'] = "orange"
 
     if isinstance(agent, (Harbour, HarbourChargingStation)):
         portrayal["r"] = 5

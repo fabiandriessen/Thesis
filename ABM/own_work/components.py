@@ -116,7 +116,7 @@ class HarbourChargingStation(Infra):
     ...
     """
 
-    def __init__(self, unique_id, model, charging_speed, charging_stations, length, name):
+    def __init__(self, unique_id, model, charging_stations, charging_speed, length, name):
         super().__init__(unique_id, model)
         self.length = length
         self.name = name
@@ -239,6 +239,7 @@ class Vessel(Agent):
         """
         Vessel waits or drives at each step
         """
+        # TODO update location (pos) while vessel moves?
         if self.state == Vessel.State.WAIT:
             print("waiting time remainging", self, self.waiting_time)
             if self.inline:

@@ -82,7 +82,24 @@ class VesselElectrification(Model):
         self.optimal_flows = pickle.load(open('data/non_zero_flows.p', 'rb'))
 
         self.generate_model()
-
+        # TODO put data collector at the end of init and run data collector here to
+        # example:
+        # self.datacollector = DataCollector(
+        #     model_reporters={
+        #         "Infected": number_infected,
+        #         "Susceptible": number_susceptible,
+        #         "Resistant": number_resistant
+        #     },  # Added agent reporters for Q2
+        #     agent_reporters={
+        #         'ChangedState': 'state_changes',  # way to store agent properties
+        #         'Degree': count_degree  # function to count degree
+        #     }
+        # )
+        # def number_infected(model):
+        #     return number_state(model, State.INFECTED)
+        # def count_degree(agent):
+        #     return len(agent.model.grid.get_neighbors(agent.unique_id)) # retrieve length of list of neighbours of each node
+        # state changes in above example is agent property
     def generate_model(self):
         """
         generate the simulation model according to the csv file component information
@@ -151,7 +168,7 @@ class VesselElectrification(Model):
         Advance the simulation by one step.
         """
         self.schedule.step()
-
+        # TODO put data collector here
         # update hour
         if self.schedule.time % 59:
             if (self.hour + 1) < 24:
