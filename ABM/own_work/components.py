@@ -1,3 +1,4 @@
+import networkx as nx
 from mesa import Agent
 from enum import Enum
 
@@ -199,12 +200,15 @@ class Vessel(Agent):
         self.generated_at_step = model.schedule.steps
         self.location = generated_by
         self.location_offset = location_offset
+        self.location_index = 0
         self.pos = generated_by.pos
+        self.current_path_length = nx.dijkstra_path_length(self.model.G, self.path_ids[self.location_index],
+                                                           self.path_ids[self.location_index+1], weight='length_m')
         self.inline = False
 
         # default values
         self.state = Vessel.State.DRIVE
-        self.location_index = 0
+
         self.waiting_time = 0
         self.waited_at = None
         self.removed_at_step = None
@@ -236,13 +240,14 @@ class Vessel(Agent):
         Vessel waits or drives at each step
         """
         if self.state == Vessel.State.WAIT:
+            print("waiting time remainging", self, self.waiting_time)
             if self.inline:
                 self.waiting_time = self.get_charging_time(self.location)
             else:
                 self.waiting_time = max(self.waiting_time - 1, 0)
                 if self.waiting_time == 0:
                     self.waited_at = self.location
-                    self.location.waiting_line.remove(self)
+                    self.location.currently_charging.remove(self)
                     self.charge = self.battery_size
                     self.state = Vessel.State.DRIVE
 
@@ -259,7 +264,7 @@ class Vessel(Agent):
         # the distance that vessel drives in a tick
         # speed is global now: can change to instance object when individual speed is needed
         distance = self.speed * self.step_time
-        distance_rest = self.location_offset + distance - self.location.length
+        distance_rest = self.location_offset + distance - self.current_path_length
         # update battery charge
         self.charge -= (self.step_time/60) * self.power
         if self.charge < 0:
@@ -326,7 +331,7 @@ class Vessel(Agent):
     def get_charging_time(self, cs):
         # 1 step = 1 min
         if len(cs.currently_charging) < cs.modules:
-            charge_needed = self.battery_size * self.charge
+            charge_needed = self.battery_size - self.charge
             charging_time = (charge_needed/cs.charging_speed) * 60  # times 60 to convert from hours to minutes
             cs.currently_charging.append(self)
             # battery is fully charged after stop
