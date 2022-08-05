@@ -3,11 +3,35 @@ from mesa.time import BaseScheduler
 from mesa.space import ContinuousSpace
 from components import Harbour, HarbourChargingStation, ChargingStation, Link, Intersection, Vessel
 import pandas as pd
+from mesa.datacollection import DataCollector
 from collections import defaultdict
 import networkx as nx
 import pickle
 import numpy as np
 import random
+
+
+def get_waited_at(agent):
+    return agent.waited_at if isinstance(agent, Vessel) else 0
+
+
+def get_vessel_status(agent):
+    if isinstance(agent, Vessel):
+        if agent.state == Vessel.State.DRIVE:
+            return 'driving'
+        else:
+            if agent.inline:
+                return 'inline'
+            else:
+                return 'charging'
+    else:
+        return 0
+
+
+def get_station_status(agent):
+    if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
+        return len(agent.currently_charging) / agent.modules
+
 
 # ---------------------------------------------------------------
 def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
@@ -80,9 +104,19 @@ class VesselElectrification(Model):
 
         self.type_engine_power = pickle.load(open('data/flow_comp_factors_unscaled.p', 'rb'))
         self.optimal_flows = pickle.load(open('data/non_zero_flows.p', 'rb'))
+        self.agent_data = {'id': [],
+                           'route': [],
+                           'time_departed': [],
+                           'travel_time': [],
+                           'time_in_line': [],
+                           'time_charging': [],
+                           'full_charging_info': []}  # new dict to store data of removed agents, before removing
 
+        self.datacollector = DataCollector(model_reporters={"data_completed_trips": "agent_data"},
+                                           agent_reporters={"vessel_status": (lambda x: get_vessel_status(x)),
+                                                            "station_status": lambda x: get_station_status(x)})
         self.generate_model()
-        # TODO put data collector at the end of init and run data collector here to
+        self.datacollector.collect(self)
         # example:
         # self.datacollector = DataCollector(
         #     model_reporters={
@@ -98,8 +132,10 @@ class VesselElectrification(Model):
         # def number_infected(model):
         #     return number_state(model, State.INFECTED)
         # def count_degree(agent):
-        #     return len(agent.model.grid.get_neighbors(agent.unique_id)) # retrieve length of list of neighbours of each node
+        #     return len(agent.model.grid.get_neighbors(agent.unique_id))
+        # retrieve length of list of neighbours of each node
         # state changes in above example is agent property
+
     def generate_model(self):
         """
         generate the simulation model according to the csv file component information
@@ -168,7 +204,7 @@ class VesselElectrification(Model):
         Advance the simulation by one step.
         """
         self.schedule.step()
-        # TODO put data collector here
+        self.datacollector.collect(self)
         # update hour
         if self.schedule.time % 59:
             if (self.hour + 1) < 24:
@@ -198,18 +234,19 @@ class VesselElectrification(Model):
                     path = self.get_route(harbour, df_1.key[j])
                     generated_at = path[0]
                     generated_by = self.schedule._agents[generated_at]
-                    battery_size = (self.range/self.vessel_speed)*self.type_engine_power[ship_type[0]]
+                    battery_size = (self.range / self.vessel_speed) * self.type_engine_power[ship_type[0]]
                     power = self.type_engine_power[ship_type[0]]
                     if len(self.optimal_flows[df_1.key[j]]['combinations']) == 1:
                         combi = self.optimal_flows[df_1.key[j]]['combinations'][0]
                     else:
                         pkey = self.optimal_flows[df_1.key[j]]['flows']
-                        pkey = [i/sum(pkey) for i in pkey]
+                        pkey = [i / sum(pkey) for i in pkey]
                         pick = np.random.choice(a=np.arange(len(self.optimal_flows[df_1.key[j]]['combinations'])),
                                                 size=1, replace=False, p=pkey)
                         combi = self.optimal_flows[df_1.key[j]]['combinations'][pick.item()]
                     print(combi)
-                    agent = Vessel(unique_id, self, generated_by, path, ship_type[0], battery_size, power, combi)
+                    agent = Vessel(unique_id, self, generated_by, path, ship_type[0], battery_size, power, combi,
+                                   df_1.key[j])
                     self.schedule.add(agent)
                     Harbour.vessel_counter += 1
 
