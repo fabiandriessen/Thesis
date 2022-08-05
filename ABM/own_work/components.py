@@ -1,6 +1,7 @@
 import networkx as nx
 from mesa import Agent
 from enum import Enum
+import numpy as np
 
 
 # ---------------------------------------------------------------
@@ -89,6 +90,7 @@ class Harbour(Infra):
         vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
         vessel.model.agent_data['time_charging'].append(sum(vessel.waited_at.values()))
         vessel.model.agent_data['full_charging_info'].append(vessel.waited_at)
+        vessel.model.agent_data['distance_travelled'].append(vessel.distance_travelled)
 
         self.model.schedule.remove(vessel)
         self.vessel_removed_toggle = not self.vessel_removed_toggle
@@ -102,6 +104,9 @@ class ChargingStation(Infra):
         self.modules = charging_stations
         self.length = length
         self.name = name
+        self.vessel_removed_toggle = False
+        self.vessel_counter = 0
+        self.vessel_generated_flag = False
         # capacity is in #vessel/24 hours
         self.charging_speed = charging_speed
         self.currently_charging = []
@@ -130,7 +135,6 @@ class HarbourChargingStation(Infra):
         self.name = name
         self.vessel_removed_toggle = False
         self.vessel_counter = 0
-        self.generation_frequency = 5
         self.vessel_generated_flag = False
         self.modules = charging_stations
         self.charging_speed = charging_speed  # KWh
@@ -148,6 +152,7 @@ class HarbourChargingStation(Infra):
         vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
         vessel.model.agent_data['time_charging'].append(sum(vessel.waited_at.values()))
         vessel.model.agent_data['full_charging_info'].append(vessel.waited_at)
+        vessel.model.agent_data['distance_travelled'].append(vessel.distance_travelled)
 
         self.model.schedule.remove(vessel)
         self.vessel_removed_toggle = not self.vessel_removed_toggle
@@ -213,6 +218,8 @@ class Vessel(Agent):
         self.combi = combi
         self.power = power
         self.route_key = route_key
+        self.total_path_length = self.model.path_lengths[self.route_key]
+        self.distance_travelled = 0
 
         # secondary attributes
         self.generated_at_step = model.schedule.steps
@@ -222,6 +229,7 @@ class Vessel(Agent):
         self.pos = generated_by.pos
         self.current_path_length = nx.dijkstra_path_length(self.model.G, self.path_ids[self.location_index],
                                                            self.path_ids[self.location_index + 1], weight='length_m')
+        print('initial path length route', self.route_key, self.current_path_length)
         self.inline = False  # initially False, True if vessel stands inline
 
         # default values
@@ -237,16 +245,27 @@ class Vessel(Agent):
         self.step_time = 1  # One tick represents 1 minute
 
         # departs fully charged if charging station at harbour, otherwise half full (consistent with assumption frlm)
+        # however, must be chance that charging first is required if there is a charging station too
         if len(combi) > 1:
-            if self.location.unique_id in combi:
-                self.charge = 1 * self.battery_size
+            if self.location.unique_id == combi[0]:
+                dist_previous = self.calculate_dist_previous()
+                self.charge = 1 * self.battery_size - ((dist_previous / self.speed) * self.power)
+                # calculate distance from previous station to this station
+
             else:
                 self.charge = 0.5 * self.battery_size
         else:
-            if self.location.unique_id == combi[0]:
-                self.charge = 1 * self.battery_size
+            if self.location.unique_id in combi:
+                self.charge = 0
+                if (self.total_path_length/(self.battery_size/self.power)) >= np.random.random():
+                    self.state = Vessel.State.WAIT
+                    self.get_charging_time(self.location)
+                else:
+                    self.charge = 1 * self.battery_size
             else:
+                # TODO hier nog wat mee?
                 self.charge = 0.5 * self.battery_size
+
 
     def __str__(self):
         return "Vessel" + str(self.unique_id) + \
@@ -281,7 +300,7 @@ class Vessel(Agent):
     def drive(self):
 
         # the distance that vessel drives in a tick
-        # speed is global now: can change to instance object when individual speed is needed
+        # speed is attribute now: can change to instance object when individual speed is needed
         distance = self.speed * self.step_time
         distance_rest = self.location_offset + distance - self.current_path_length
         # update battery charge
@@ -293,6 +312,7 @@ class Vessel(Agent):
             # go to the next object
             self.drive_to_next(distance_rest)
         else:
+            self.distance_travelled += distance
             # remain on the same object
             self.location_offset += distance
 
@@ -302,11 +322,14 @@ class Vessel(Agent):
         """
         vessel shall move to the next object with the given distance
         """
-
+        # determine next infra
         self.location_index += 1
         next_id = self.path_ids[self.location_index]
         next_infra = self.model.schedule._agents[next_id]  # Access to protected member _agents
+        # update path
+        self.current_path_length = self.update_path(next_id)
 
+        # if at final destination, remove
         if next_id == self.path_ids[-1]:
             # arrive at destination
             self.arrive_at_next(next_infra, 0)
@@ -314,57 +337,73 @@ class Vessel(Agent):
             self.location.remove(self)
             return
 
+        # if not at final dest, but if at charging station: move till here and charge if necessary
         elif isinstance(next_infra, ChargingStation) or isinstance(next_infra, HarbourChargingStation):
             if len(self.combi) > 1:
                 if next_infra.unique_id in self.combi:
-                    self.waiting_time = self.get_charging_time(next_infra)
-                    # arrive at the bridge and wait
-                    self.arrive_at_next(next_infra, 0)
-                    self.state = Vessel.State.WAIT
-                    self.waited_at[next_infra.unique_id] = self.waiting_time
+                    self.charging_procedure(next_infra, distance)
                     return
                     # else, continue driving
             else:
                 if next_infra.unique_id == self.combi[0]:
-                    self.waiting_time = self.get_charging_time(next_infra)
-                    # arrive at the bridge and wait
-                    self.arrive_at_next(next_infra, 0)
-                    self.state = Vessel.State.WAIT
+                    self.charging_procedure(next_infra, distance)
                     return
                     # else, continue driving
 
-        if next_infra.length > distance:
-            # stay on this object:
-            self.arrive_at_next(next_infra, distance)
         else:
             # drive to next object:
-            self.drive_to_next(distance - next_infra.length)
+            self.arrive_at_next(next_infra, distance)
 
     def arrive_at_next(self, next_infra, location_offset):
         """
         Arrive at next_infra with the given location_offset
         """
         # update current path length
-        self.current_path_length = nx.dijkstra_path_length(self.model.G, self.path_ids[self.location_index-1],
-                                                           self.path_ids[self.location_index], weight='length_m')
+        print("new path length route", self.route_key, self.current_path_length)
         self.location.vessel_count -= 1
         self.location = next_infra
         self.location_offset = location_offset
         self.location.vessel_count += 1
 
     def get_charging_time(self, cs):
-        # 1 step = 1 min
+        charge_needed = self.battery_size - self.charge
+        charging_time = (charge_needed / cs.charging_speed) * 60  # times 60 to convert from hours to minutes
+        self.charge = self.battery_size  # battery is fully charged after stop
         if len(cs.currently_charging) < cs.modules:
-            charge_needed = self.battery_size - self.charge
-            charging_time = (charge_needed / cs.charging_speed) * 60  # times 60 to convert from hours to minutes
-            cs.currently_charging.append(self)
-            # battery is fully charged after stop
-            self.charge = self.battery_size
             self.inline = False
+            cs.currently_charging.append(self)
         else:
-            charging_time = 1e6  # just here for safety
-            self.inline = True  # inline until waiting line decreases
-
+            self.inline = True
         return charging_time
+
+    def update_path(self, next_id):
+        if next_id == self.path_ids[-1]:
+            updated_path = self.current_path_length
+        else:
+            updated_path = nx.dijkstra_path_length(self.model.G,
+                                                   self.path_ids[self.location_index],
+                                                   self.path_ids[self.location_index + 1],
+                                                   weight='length_m')
+        return updated_path
+
+    def charging_procedure(self, next_infra, overshoot):
+        self.waiting_time = self.get_charging_time(next_infra)
+        # arrive at the bridge and wait
+        self.arrive_at_next(next_infra, 0)
+        self.state = Vessel.State.WAIT
+        self.waited_at[next_infra.unique_id] = self.waiting_time
+        self.distance_travelled -= overshoot
+
+    def calculate_dist_previous(self):
+        path = self.path_ids
+        dist = 0
+        for index in range(len(path)-1):
+            dist += nx.dijkstra_path_length(self.model.G,
+                                            self.path_ids[index],
+                                            self.path_ids[index + 1],
+                                            weight='length_m')
+            if path[index] in self.combi:
+                break
+        return dist
 
 # EOF -----------------------------------------------------------
