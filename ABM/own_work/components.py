@@ -229,7 +229,7 @@ class Vessel(Agent):
         self.pos = generated_by.pos
         self.current_path_length = nx.dijkstra_path_length(self.model.G, self.path_ids[self.location_index],
                                                            self.path_ids[self.location_index + 1], weight='length_m')
-        print('initial path length route', self.route_key, self.current_path_length)
+        # print('initial path length route', self.route_key, self.current_path_length)
         self.inline = False  # initially False, True if vessel stands inline
 
         # default values
@@ -247,31 +247,33 @@ class Vessel(Agent):
         # departs fully charged if charging station at harbour, otherwise half full (consistent with assumption frlm)
         # however, must be chance that charging first is required if there is a charging station too
         if len(combi) > 1:
-            if self.location.unique_id == combi[0]:
-                dist_previous = self.calculate_dist_previous()
-                self.charge = 1 * self.battery_size - ((dist_previous / self.speed) * self.power)
+            if self.location.unique_id in combi:
+                # dist_previous = self.calculate_dist_previous()
+                # self.charge = 1 * self.battery_size - ((dist_previous / self.speed) * self.power)
+                self.charge = 1 * self.battery_size
                 # calculate distance from previous station to this station
 
             else:
                 self.charge = 0.5 * self.battery_size
         else:
-            if self.location.unique_id in combi:
-                self.charge = 0
-                if (self.total_path_length/(self.battery_size/self.power)) >= np.random.random():
-                    self.state = Vessel.State.WAIT
-                    self.get_charging_time(self.location)
-                else:
-                    self.charge = 1 * self.battery_size
+            if self.location.unique_id == combi[0]:
+                # self.charge = 0
+                # if (self.total_path_length/(self.battery_size/self.power)) >= np.random.random():
+                #     self.state = Vessel.State.WAIT
+                #     self.get_charging_time(self.location)
+                # else:
+                #     self.charge = 1 * self.battery_size
+                self.charge = 1 * self.battery_size
             else:
                 # TODO hier nog wat mee?
                 self.charge = 0.5 * self.battery_size
 
-
     def __str__(self):
         return "Vessel" + str(self.unique_id) + \
-               " +" + str(self.generated_at_step) + " -" + str(self.removed_at_step) + \
+               " +" + str(self.generated_at_step) + " -" + str(self.combi) + \
                " " + str(self.state) + '(' + str(self.waiting_time) + ') ' + \
-               str(self.location) + '(' + str(self.location.vessel_count) + ') ' + str(self.location_offset)
+               str(self.location) + '(' + str(self.route_key) + ') ' + str(self.location_offset) + ", " + \
+               str(self.battery_size) + ", " + str(self.charge)
 
     def step(self):
         """
@@ -295,7 +297,7 @@ class Vessel(Agent):
         """
         To print the vessel trajectory at each step
         """
-        print(self)
+        # print(self)
 
     def drive(self):
 
@@ -303,10 +305,15 @@ class Vessel(Agent):
         # speed is attribute now: can change to instance object when individual speed is needed
         distance = self.speed * self.step_time
         distance_rest = self.location_offset + distance - self.current_path_length
+
+        # update pos
+        self.pos = self.update_pos()
+
         # update battery charge
         self.charge -= (self.step_time / 60) * self.power
+
         if self.charge < 0:
-            print("Bug detected, negative charge")
+            print("Bug detected, negative charge", self)
             self.model.running = False
         if distance_rest > 0:
             # go to the next object
@@ -315,8 +322,6 @@ class Vessel(Agent):
             self.distance_travelled += distance
             # remain on the same object
             self.location_offset += distance
-
-        # TODO update position for visualisation
 
     def drive_to_next(self, distance):
         """
@@ -328,6 +333,8 @@ class Vessel(Agent):
         next_infra = self.model.schedule._agents[next_id]  # Access to protected member _agents
         # update path
         self.current_path_length = self.update_path(next_id)
+        # update pos
+        self.pos = next_infra.pos
 
         # if at final destination, remove
         if next_id == self.path_ids[-1]:
@@ -338,7 +345,7 @@ class Vessel(Agent):
             return
 
         # if not at final dest, but if at charging station: move till here and charge if necessary
-        elif isinstance(next_infra, ChargingStation) or isinstance(next_infra, HarbourChargingStation):
+        elif (isinstance(next_infra, ChargingStation)) or (isinstance(next_infra, HarbourChargingStation)):
             if len(self.combi) > 1:
                 if next_infra.unique_id in self.combi:
                     self.charging_procedure(next_infra, distance)
@@ -359,7 +366,7 @@ class Vessel(Agent):
         Arrive at next_infra with the given location_offset
         """
         # update current path length
-        print("new path length route", self.route_key, self.current_path_length)
+        # print("new path length route", self.route_key, self.current_path_length)
         self.location.vessel_count -= 1
         self.location = next_infra
         self.location_offset = location_offset
@@ -387,17 +394,21 @@ class Vessel(Agent):
         return updated_path
 
     def charging_procedure(self, next_infra, overshoot):
-        self.waiting_time = self.get_charging_time(next_infra)
-        # arrive at the bridge and wait
-        self.arrive_at_next(next_infra, 0)
-        self.state = Vessel.State.WAIT
-        self.waited_at[next_infra.unique_id] = self.waiting_time
+        # correct for overshoot
+        self.charge += (overshoot / self.speed) * (self.step_time / 60) * self.power
         self.distance_travelled -= overshoot
+        # get waiting time
+        self.waiting_time = self.get_charging_time(next_infra)
+
+        # arrive at the charging station and wait till fully charged
+        self.arrive_at_next(next_infra, 0)
+        self.state = Vessel.State.WAIT  # set state to wait
+        self.waited_at[next_infra.unique_id] = self.waiting_time  # store waiting time for object
 
     def calculate_dist_previous(self):
         path = self.path_ids
         dist = 0
-        for index in range(len(path)-1):
+        for index in range(len(path) - 1):
             dist += nx.dijkstra_path_length(self.model.G,
                                             self.path_ids[index],
                                             self.path_ids[index + 1],
@@ -405,5 +416,22 @@ class Vessel(Agent):
             if path[index] in self.combi:
                 break
         return dist
+
+    def update_pos(self):
+
+        x1, y1 = self.location.pos
+        a = self.location.unique_id
+        b = self.path_ids[(self.path_ids.index(a) + 1)]
+        x2, y2 = self.model.schedule._agents[b].pos
+
+        current_path_l = self.current_path_length
+        delta_dist = self.speed * self.step_time
+        d_x = ((x2 - x1) / current_path_l) * delta_dist
+        d_y = ((y2 - y1) / current_path_l) * delta_dist
+
+        new_x = self.pos[0] + d_x
+        new_y = self.pos[1] + d_y
+
+        return new_x, new_y
 
 # EOF -----------------------------------------------------------

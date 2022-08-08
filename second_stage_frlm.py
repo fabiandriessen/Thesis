@@ -123,7 +123,10 @@ def second_stage_frlm(r, v, b, p, c, max_per_loc, df_g, df_b, df_eq_fq):
         if item != 0:
             a = (re.sub('''["'_']''', "", key[16:35]).split(','))
             a = tuple([a[0], a[1], int(a[2])])
-            non_zero_flows[a]['combinations'].append(key[40:-4].split("',_'"))
+            b = key[40:-3].split("',_'")
+            if len(b) == 1:
+                b[0] = re.sub("[']", "", b[0])
+            non_zero_flows[a]['combinations'].append(b)
             non_zero_flows[a]['flows'].append(item)
 
     routes_supported = float(len(non_zero_flows.keys()))
