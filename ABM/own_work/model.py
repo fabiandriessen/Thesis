@@ -112,8 +112,10 @@ class VesselElectrification(Model):
                            'travel_time': [],
                            'time_in_line': [],
                            'time_charging': [],
+                           'time_charging_dest': [],
                            'full_charging_info': [],
-                           'distance_travelled': []}  # new dict to store data of removed agents, before removing
+                           'distance_travelled': [],
+                           'battery_size': []}  # new dict to store data of removed agents, before removing
 
         self.datacollector = DataCollector(model_reporters={"data_completed_trips": "agent_data"},
                                            agent_reporters={"vessel_status": (lambda x: get_vessel_status(x)),
@@ -217,8 +219,8 @@ class VesselElectrification(Model):
                         prob = list(a.iloc[i, 4:-2].values / a.iloc[i, 4:-2].sum())
                         to_pick = type_list
                         ship_type = np.random.choice(a=to_pick, size=1, replace=False, p=prob)
-                        print(ship_type, "Vessel departed at", df_1.origin[j], self.hour, ':', self.schedule.time,
-                              "heading to", df_1.destination[j], "via route", df_1.key[j])
+                        # print(ship_type, "Vessel departed at", df_1.origin[j], self.hour, ':', self.schedule.time,
+                              # "heading to", df_1.destination[j], "via route", df_1.key[j])
 
                         unique_id = Harbour.vessel_counter  # give unique ID based on Harbour attribute
                         path = self.get_route(harbour, df_1.key[j])  # determine path based on route

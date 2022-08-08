@@ -1,7 +1,6 @@
 import networkx as nx
 from mesa import Agent
 from enum import Enum
-import numpy as np
 
 
 # ---------------------------------------------------------------
@@ -27,12 +26,30 @@ class Infra(Agent):
         self.length = length
         self.name = name
         self.vessel_count = 0
+        self.vessel_removed_toggle = False
+        self.vessel_generated_flag = False
 
     def step(self):
         pass
 
     def __str__(self):
         return type(self).__name__ + str(self.unique_id)
+
+    def remove(self, vessel):
+        vessel.model.agent_data['id'].append(vessel.unique_id)
+        vessel.model.agent_data['route'].append(vessel.route_key)
+        vessel.model.agent_data['time_departed'].append(vessel.generated_at_step)
+        vessel.model.agent_data['travel_time'].append(vessel.model.schedule.time - vessel.generated_at_step)
+        vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
+        vessel.model.agent_data['time_charging'].append(sum(vessel.waited_at.values()))
+        vessel.model.agent_data['time_charging_dest'].append(vessel.charged_at_dest)
+        vessel.model.agent_data['full_charging_info'].append(vessel.waited_at)
+        vessel.model.agent_data['distance_travelled'].append(vessel.distance_travelled)
+        vessel.model.agent_data['battery_size'].append(vessel.battery_size)
+
+        self.model.schedule.remove(vessel)
+        self.vessel_removed_toggle = not self.vessel_removed_toggle
+        # print(str(self) + ' REMOVE ' + str(vessel))
 
 
 # ---------------------------------------------------------------
@@ -82,20 +99,6 @@ class Harbour(Infra):
         # Current plan: vessels generated in step function of the model
         pass
 
-    def remove(self, vessel):
-        vessel.model.agent_data['id'].append(vessel.unique_id)
-        vessel.model.agent_data['route'].append(vessel.route_key)
-        vessel.model.agent_data['time_departed'].append(vessel.generated_at_step)
-        vessel.model.agent_data['travel_time'].append(vessel.model.schedule.time - vessel.generated_at_step)
-        vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
-        vessel.model.agent_data['time_charging'].append(sum(vessel.waited_at.values()))
-        vessel.model.agent_data['full_charging_info'].append(vessel.waited_at)
-        vessel.model.agent_data['distance_travelled'].append(vessel.distance_travelled)
-
-        self.model.schedule.remove(vessel)
-        self.vessel_removed_toggle = not self.vessel_removed_toggle
-        print(str(self) + ' REMOVE ' + str(vessel))
-
 
 # ---------------------------------------------------------------
 class ChargingStation(Infra):
@@ -107,7 +110,6 @@ class ChargingStation(Infra):
         self.vessel_removed_toggle = False
         self.vessel_counter = 0
         self.vessel_generated_flag = False
-        # capacity is in #vessel/24 hours
         self.charging_speed = charging_speed
         self.currently_charging = []
 
@@ -143,20 +145,6 @@ class HarbourChargingStation(Infra):
     def step(self):
         # Current plan: vessels generated in step function of the model
         pass
-
-    def remove(self, vessel):
-        vessel.model.agent_data['id'].append(vessel.unique_id)
-        vessel.model.agent_data['route'].append(vessel.route_key)
-        vessel.model.agent_data['time_departed'].append(vessel.generated_at_step)
-        vessel.model.agent_data['travel_time'].append(vessel.model.schedule.time - vessel.generated_at_step)
-        vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
-        vessel.model.agent_data['time_charging'].append(sum(vessel.waited_at.values()))
-        vessel.model.agent_data['full_charging_info'].append(vessel.waited_at)
-        vessel.model.agent_data['distance_travelled'].append(vessel.distance_travelled)
-
-        self.model.schedule.remove(vessel)
-        self.vessel_removed_toggle = not self.vessel_removed_toggle
-        print(str(self) + ' REMOVE ' + str(vessel))
 
 
 # ---------------------------------------------------------------
@@ -235,11 +223,14 @@ class Vessel(Agent):
         # default values
         self.state = Vessel.State.DRIVE
 
+        # charging related attributes
         self.time_waited = 0  # variable to keep track the passed waiting time
         self.waiting_time = 0  # variable to keep track of waiting time
-        self.waited_at = {}  # dict with unique ID where vessel had to wait as a key, and the value is the time spent
         self.time_inline = 0  # total time spent waiting at any stations
-        self.total_charging_time = 0  # total time spent charging, only differs from above if vessel stood in line
+        self.charged_at_dest = 0  # charging time before removed once dest is reached
+        self.waited_at = {}  # dict with unique ID where vessel had to wait as a key, and the value is the time spent
+        self.remove_if_charged = 0  # if True, a vessel should be removed from the model once fully charged
+
         self.removed_at_step = None
         self.speed = 15 * 1000 / 60  # 15 km/h translated into meter per min, diff speeds for diff ships possible
         self.step_time = 1  # One tick represents 1 minute
@@ -248,24 +239,14 @@ class Vessel(Agent):
         # however, must be chance that charging first is required if there is a charging station too
         if len(combi) > 1:
             if self.location.unique_id in combi:
-                # dist_previous = self.calculate_dist_previous()
-                # self.charge = 1 * self.battery_size - ((dist_previous / self.speed) * self.power)
                 self.charge = 1 * self.battery_size
-                # calculate distance from previous station to this station
-
             else:
                 self.charge = 0.5 * self.battery_size
         else:
             if self.location.unique_id == combi[0]:
-                # self.charge = 0
-                # if (self.total_path_length/(self.battery_size/self.power)) >= np.random.random():
-                #     self.state = Vessel.State.WAIT
-                #     self.get_charging_time(self.location)
-                # else:
-                #     self.charge = 1 * self.battery_size
+
                 self.charge = 1 * self.battery_size
             else:
-                # TODO hier nog wat mee?
                 self.charge = 0.5 * self.battery_size
 
     def __str__(self):
@@ -286,10 +267,15 @@ class Vessel(Agent):
                 self.time_inline += 1
             else:
                 self.waiting_time = max(self.waiting_time - 1, 0)
-                if self.waiting_time == 0:
+                if (self.waiting_time == 0) and (not self.remove_if_charged):
                     self.location.currently_charging.remove(self)
                     self.charge = self.battery_size
                     self.state = Vessel.State.DRIVE
+                elif (self.waiting_time == 0) and self.remove_if_charged:
+                    print(self.model.schedule.time, 'remove fully charged vessel', self)
+                    self.location.currently_charging.remove(self)
+                    self.removed_at_step = self.model.schedule.steps
+                    self.location.remove(self)
 
         if self.state == Vessel.State.DRIVE:
             self.drive()
@@ -303,14 +289,10 @@ class Vessel(Agent):
 
         # the distance that vessel drives in a tick
         # speed is attribute now: can change to instance object when individual speed is needed
-        distance = self.speed * self.step_time
-        distance_rest = self.location_offset + distance - self.current_path_length
-
-        # update pos
-        self.pos = self.update_pos()
-
-        # update battery charge
-        self.charge -= (self.step_time / 60) * self.power
+        distance = self.speed * self.step_time  # distance covered in this time_step
+        distance_rest = self.location_offset + distance - self.current_path_length  # distance remaining on current path
+        self.pos = self.update_pos()  # update position
+        self.charge -= (self.step_time / 60) * self.power  # update battery charge
 
         if self.charge < 0:
             print("Bug detected, negative charge", self)
@@ -338,10 +320,25 @@ class Vessel(Agent):
 
         # if at final destination, remove
         if next_id == self.path_ids[-1]:
-            # arrive at destination
-            self.arrive_at_next(next_infra, 0)
-            self.removed_at_step = self.model.schedule.steps
-            self.location.remove(self)
+            # arrive at destination and charge till full
+            if len(self.combi) > 1:
+                if next_infra.unique_id in self.combi:
+                    self.charging_procedure(next_infra, distance)
+                    self.charged_at_dest = self.waiting_time
+                    self.remove_if_charged = True
+                    self.arrive_at_next(next_infra, 0)
+                else:
+                    self.removed_at_step = self.model.schedule.steps
+                    self.location.remove(self)
+            else:
+                if next_infra.unique_id == self.combi[0]:
+                    self.charging_procedure(next_infra, distance)
+                    self.charged_at_dest = self.waiting_time
+                    self.remove_if_charged = True
+                    self.arrive_at_next(next_infra, 0)
+                else:
+                    self.removed_at_step = self.model.schedule.steps
+                    self.location.remove(self)
             return
 
         # if not at final dest, but if at charging station: move till here and charge if necessary
@@ -404,18 +401,6 @@ class Vessel(Agent):
         self.arrive_at_next(next_infra, 0)
         self.state = Vessel.State.WAIT  # set state to wait
         self.waited_at[next_infra.unique_id] = self.waiting_time  # store waiting time for object
-
-    def calculate_dist_previous(self):
-        path = self.path_ids
-        dist = 0
-        for index in range(len(path) - 1):
-            dist += nx.dijkstra_path_length(self.model.G,
-                                            self.path_ids[index],
-                                            self.path_ids[index + 1],
-                                            weight='length_m')
-            if path[index] in self.combi:
-                break
-        return dist
 
     def update_pos(self):
 

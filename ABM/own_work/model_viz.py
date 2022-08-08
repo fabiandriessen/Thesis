@@ -52,9 +52,9 @@ def agent_portrayal(agent):
         portrayal['Color'] = "orange"
 
     if isinstance(agent, (Harbour, HarbourChargingStation)):
-        portrayal["r"] = 5
-    elif isinstance(agent, Infra):
-        portrayal["r"] = max(agent.vessel_count * 4, 2)
+        portrayal["r"] = max(agent.currently_charging+len(agent) * 4, 2)
+    # elif isinstance(agent, Infra):
+    #     portrayal["r"] = max(agent.vessel_count * 4, 2)
 
     # define text labels
     # if isinstance(agent, Infra) and agent.name != "":
