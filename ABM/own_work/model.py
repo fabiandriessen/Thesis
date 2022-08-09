@@ -9,10 +9,35 @@ import networkx as nx
 import pickle
 import numpy as np
 import random
+import math
 
 
 def get_waited_at(agent):
     return agent.waited_at if isinstance(agent, Vessel) else 0
+
+
+def get_key(agent):
+    return agent.route_key if isinstance(agent, Vessel) else 0
+
+
+def get_departed_at(agent):
+    return agent.generated_at_step if isinstance(agent, Vessel) else 0
+
+
+def get_battery_size(agent):
+    return agent.battery_size if isinstance(agent, Vessel) else 0
+
+
+def get_battery_level(agent):
+    return agent.charge if isinstance(agent, Vessel) else 0
+
+
+def get_generation_time(agent):
+    return agent.generated_at_step if isinstance(agent, Vessel) else 0
+
+
+def get_removal_time(agent):
+    return agent.removed_at_step if isinstance(agent, Vessel) else 0
 
 
 def get_vessel_status(agent):
@@ -118,8 +143,15 @@ class VesselElectrification(Model):
                            'battery_size': []}  # new dict to store data of removed agents, before removing
 
         self.datacollector = DataCollector(model_reporters={"data_completed_trips": "agent_data"},
-                                           agent_reporters={"vessel_status": (lambda x: get_vessel_status(x)),
-                                                            "station_status": lambda x: get_station_status(x)})
+                                           agent_reporters={"id": "unique_id",
+                                                            "vessel_status": (lambda x: get_vessel_status(x)),
+                                                            "vessel_route": (lambda x: get_key(x)),
+                                                            "battery_size": (lambda x: get_battery_size(x)),
+                                                            "battery_level": (lambda x: get_battery_level(x)),
+                                                            "generated_at": (lambda x: get_generation_time(x)),
+                                                            "removed_at": (lambda x: get_removal_time(x)),
+                                                            "station_status": (lambda x: get_station_status(x))})
+
         self.generate_model()
         self.datacollector.collect(self)
 
@@ -227,7 +259,7 @@ class VesselElectrification(Model):
                         generated_at = path[0]  # store origin
                         generated_by = self.schedule._agents[generated_at]  # store which agent generated this vessel
                         power = self.type_engine_power[ship_type[0]]  # look up engine power based on type
-                        battery_size = (self.range / self.vessel_speed) * power  # all ships are assumed to have equal r
+                        battery_size = math.ceil((self.range / self.vessel_speed) * power)  # all ships are assumed to have equal r
 
                         # determine combination that this vessel will use
                         if len(self.optimal_flows[df_1.key[j]]['combinations']) == 1:
