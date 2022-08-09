@@ -46,7 +46,7 @@ class Infra(Agent):
         vessel.model.agent_data['time_charging'].append(sum(vessel.waited_at.values()))
         vessel.model.agent_data['time_charging_dest'].append(vessel.charged_at_dest)
         vessel.model.agent_data['full_charging_info'].append(vessel.waited_at)
-        vessel.model.agent_data['distance_travelled'].append(vessel.distance_travelled)
+        vessel.model.agent_data['distance_travelled'].append(vessel.location_offset)
         vessel.model.agent_data['battery_size'].append(vessel.battery_size)
 
         self.model.schedule.remove(vessel)
@@ -231,13 +231,13 @@ class Vessel(Agent):
         self.combi = combi
         self.power = power
         self.route_key = route_key
-        self.distance_travelled = 0
 
         # secondary attributes
         self.generated_at_step = model.schedule.steps
         self.location = generated_by
         self.location_offset = location_offset
         self.location_index = 0
+        self.target_index = 1
         self.pos = generated_by.pos
         self.current_path_length = nx.dijkstra_path_length(self.model.G, self.path_ids[self.location_index],
                                                            self.path_ids[self.location_index + 1], weight='length_m')
@@ -269,8 +269,7 @@ class Vessel(Agent):
     def __str__(self):
         return "Vessel" + str(self.unique_id) + " +" + str(self.generated_at_step) + " -" + str(self.combi) +\
                " " + str(self.path_ids[self.location_index]) + " " + str(self.state) + '(' + str(self.waiting_time) \
-               + ') ' + ' ' + str(self.route_key) + ' ' + str(self.location_offset) + ", " + \
-               str(self.distance_travelled) + ' ' + str(self.location)
+               + ') ' + ' ' + str(self.route_key) + ' ' + str(self.location_offset) + ' ' + str(self.location)
 
     def step(self):
         """
@@ -308,73 +307,56 @@ class Vessel(Agent):
 
     def drive(self):
         distance = self.speed * self.step_time  # distance covered in tick
-        distance_rest = self.location_offset + distance - self.current_path_length  # distance remaining on current path
+        self.charge -= (self.step_time / 60) * self.power
+        self.pos = self.update_pos()  # update position
+        self.location_offset += distance
+        distance_rest = self.location_offset - self.current_path_length  # distance remaining on current path
 
         if distance_rest > 0:
-            self.drive_to_next(distance_rest)  # go to the next object
-            self.charge -= ((distance-distance_rest)/distance) * (self.step_time / 60) * self.power  # update charge
-            self.distance_travelled += (distance-self.location_offset)
+            if self.path_ids[self.target_index] != self.path_ids[-1]:
+                self.location_index += 1
+                self.target_index += 1
+                self.current_path_length = self.current_path_length + self.update_path_length()
 
-        else:
-            self.charge -= (self.step_time / 60) * self.power  # update battery charge
-            self.location_offset += distance  # remain on the same object
-            self.distance_travelled += distance
-            self.pos = self.update_pos()  # update position
+                next_id = self.path_ids[self.location_index]
+                next_infra = self.model.schedule._agents[next_id]
+
+                if next_id in self.combi:
+                    # charge here
+                    self.arrive_at_next(next_infra, distance_rest, correct_overshoot=True)
+                    self.get_charging_time(next_infra)
+                    return
+                else:
+                    self.arrive_at_next(next_infra, distance_rest)
+
+            elif self.path_ids[self.target_index] == self.path_ids[-1]:
+                # arrive at next first (always)
+                next_id = self.path_ids[self.location_index]
+                next_infra = self.model.schedule._agents[next_id]
+                self.arrive_at_next(next_infra, distance_rest, correct_overshoot=True)
+                if next_id in self.combi:
+                    self.get_charging_time(self.location)
+                    self.charged_at_dest = self.waiting_time
+                    self.remove_if_charged = True
+                else:
+                    self.removed_at_step = self.model.schedule.steps
+                    self.location.remove(self)
 
         if self.charge < 0:
             print("Bug detected, negative charge", self)
             self.model.running = False
 
-    def drive_to_next(self, distance_rest):
-        """
-        vessel shall move to the next object with the given distance
-        """
-
-        # determine next infra
-        self.location_index += 1
-        next_id = self.path_ids[self.location_index]
-        next_infra = self.model.schedule._agents[next_id]  # Access to protected member _agents
-
-        # final dest reached -> cs here? charge and remove, else: remove
-        if next_id != self.path_ids[-1]:
-            self.update_path_length()
-            # not at final dest but at cs: should I charge here? If yes, proceed charging, else drive past
-            if (isinstance(next_infra, ChargingStation)) or (isinstance(next_infra, HarbourChargingStation)):
-                if next_id in self.combi:
-                    self.arrive_at_next(next_infra, 0)
-                    self.get_charging_time(self.location)
-                    self.distance_travelled -= distance_rest
-                    return
-                    # else, continue driving
-            else:
-                # drive to next object:
-                self.arrive_at_next(next_infra, distance_rest)
-        else:
-            self.distance_travelled -= distance_rest
-            if next_id in self.combi:
-                # arrive and setup charging
-                self.arrive_at_next(next_infra, 0)
-                self.get_charging_time(self.location)
-                self.charged_at_dest = self.waiting_time
-                self.remove_if_charged = True
-                return
-
-            else:
-                # arrive and remove
-                self.arrive_at_next(next_infra, 0)
-                self.removed_at_step = self.model.schedule.steps
-                self.location.remove(self)
-                # print('Remove without charging', self)
-                return
-
-    def arrive_at_next(self, next_infra, location_offset):
+    def arrive_at_next(self, next_infra, location_offset, correct_overshoot=False):
         """
         Arrive at next_infra with the given location_offset
         """
         # print("new path length route", self.route_key, self.current_path_length)
         self.location.vessel_count -= 1
         self.location = next_infra
-        self.location_offset = location_offset
+        if correct_overshoot:
+            self.location_offset -= location_offset
+            distance = self.speed * self.step_time
+            self.charge += (1 - ((distance-location_offset)/distance)) * (self.step_time/60) * self.power
         self.location.vessel_count += 1
 
         # update location
@@ -405,12 +387,10 @@ class Vessel(Agent):
         self.waited_at[cs.unique_id] = 0
 
     def update_path_length(self):
-        self.current_path_length = nx.dijkstra_path_length(self.model.G,
-                                                           self.path_ids[self.location_index],
-                                                           self.path_ids[self.location_index + 1],
-                                                           weight='length_m')
-        if self.unique_id == 1:
-            print('New path length for route', self, self.current_path_length)
+        new_path = nx.dijkstra_path_length(self.model.G, self.path_ids[self.location_index],
+                                           self.path_ids[self.target_index], weight='length_m')
+        return new_path
+
     def update_pos(self, delta_dist=False):
 
         x1, y1 = self.location.pos
