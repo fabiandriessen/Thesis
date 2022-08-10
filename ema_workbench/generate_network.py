@@ -24,10 +24,6 @@ def generate_network(G, paths, nodes_to_add):
     for node in G.nodes:
         pos_dict[node] = (G.nodes[node]['X'], G.nodes[node]['Y'])
 
-    # extract data
-    df_links = nx.to_pandas_edgelist(G)
-    df_nodes = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
-
     # set new edge attribute split initially to 0 for all edges
     nx.set_edge_attributes(G, 0, 'split')
 
