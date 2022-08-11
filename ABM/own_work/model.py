@@ -13,31 +13,31 @@ import math
 
 
 def get_waited_at(agent):
-    return agent.waited_at if isinstance(agent, Vessel) else 0
+    return agent.waited_at if isinstance(agent, Vessel) else np.nan
 
 
 def get_key(agent):
-    return agent.route_key if isinstance(agent, Vessel) else 0
+    return agent.route_key if isinstance(agent, Vessel) else np.nan
 
 
 def get_departed_at(agent):
-    return agent.generated_at_step if isinstance(agent, Vessel) else 0
+    return agent.generated_at_step if isinstance(agent, Vessel) else np.nan
 
 
 def get_battery_size(agent):
-    return agent.battery_size if isinstance(agent, Vessel) else 0
+    return agent.battery_size if isinstance(agent, Vessel) else np.nan
 
 
 def get_battery_level(agent):
-    return agent.charge if isinstance(agent, Vessel) else 0
+    return agent.charge if isinstance(agent, Vessel) else np.nan
 
 
 def get_generation_time(agent):
-    return agent.generated_at_step if isinstance(agent, Vessel) else 0
+    return agent.generated_at_step if isinstance(agent, Vessel) else np.nan
 
 
 def get_removal_time(agent):
-    return agent.removed_at_step if isinstance(agent, Vessel) else 0
+    return agent.removed_at_step if isinstance(agent, Vessel) else np.nan
 
 
 def get_vessel_status(agent):
@@ -46,17 +46,24 @@ def get_vessel_status(agent):
             return 'driving'
         else:
             if agent.inline:
-                return 'inline'
+                return ['inline', agent.location.unique_id]
             else:
-                return 'charging'
+                return ['charging', agent.location.unique_id]
     else:
-        return 0
+        return np.nan
 
 
 def get_station_status(agent):
     if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
         return len(agent.currently_charging) / agent.modules
-
+    else:
+        return np.nan
+    
+def get_cs(agent):
+    if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
+        return agent.modules
+    else:
+        return np.nan
 
 # ---------------------------------------------------------------
 def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
@@ -143,14 +150,14 @@ class VesselElectrification(Model):
                            'battery_size': []}  # new dict to store data of removed agents, before removing
 
         self.datacollector = DataCollector(model_reporters={"data_completed_trips": "agent_data"},
-                                           agent_reporters={"id": "unique_id",
-                                                            "vessel_status": (lambda x: get_vessel_status(x)),
+                                           agent_reporters={"vessel_status": (lambda x: get_vessel_status(x)),
                                                             "vessel_route": (lambda x: get_key(x)),
                                                             "battery_size": (lambda x: get_battery_size(x)),
                                                             "battery_level": (lambda x: get_battery_level(x)),
                                                             "generated_at": (lambda x: get_generation_time(x)),
                                                             "removed_at": (lambda x: get_removal_time(x)),
-                                                            "station_status": (lambda x: get_station_status(x))})
+                                                            "station_status": (lambda x: get_station_status(x)),
+                                                            "charging_stations": (lambda x: get_cs(x))})
 
         self.generate_model()
         self.datacollector.collect(self)
