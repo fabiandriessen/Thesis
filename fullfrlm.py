@@ -5,6 +5,7 @@ from second_stage_frlm import second_stage_frlm
 from generate_network import generate_network
 from visualize_placement import visualize_placement
 from create_input_data_abm import create_input_data_abm
+from determine_additional_nodes import determine_additional_nodes
 import pickle
 
 
@@ -13,8 +14,8 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_per_loc, additional_nodes=0,
-                                  vis=False):
+def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_per_loc, additional_nodes=False,
+                                  include_intersections=False, vis=False):
     """abc
     Parameters
     ----------
@@ -28,8 +29,11 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
         Maximum capacity of a charging station per time unit.
     max_per_loc: int
         Maximum number of charging modules that may be placed at a location.
-    additional_nodes: int
-        Number of additional nodes that should be inserted into the original network.
+    additional_nodes: Bolean
+        True if additional nodes should be inserted into the original network.
+    include_intersections: Boolean
+    If this variable is True, intersections are also considered to place stations if additional_nodes is True.
+
     vis: Boolean
     If this variable is True, a visualisation is presented
     """
@@ -39,14 +43,17 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     path_lengths = pickle.load(open("data/revised_cleaning_results/path_lengths_ship_specific_routes.p", "rb"))
     paths = pickle.load(open('data/final_paths.p', "rb"))
 
-    # if additional nodes need to be considered, update G, paths and inserted accordingly
-    inserted = []
-    if additional_nodes != 0:
-        G, paths, inserted = generate_network(G, paths, additional_nodes)
-
     # generate random data
     df_random = random_vessel_generator(df_ivs, load)
     flows = flow_computation(df_random)
+
+    # if additional nodes need to be considered, update G, paths and inserted accordingly
+    inserted = []
+    if additional_nodes:
+        G, paths, inserted = generate_network(G, paths, r)
+        # include intersections if True
+        if include_intersections:
+            inserted += determine_additional_nodes(G, paths, df_h, r)
 
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,

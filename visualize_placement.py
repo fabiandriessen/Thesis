@@ -63,7 +63,7 @@ def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, 
     # print(H_fuel.nodes)
     # now draw, first setup grid
     # fig, ax = plt.subplots(figsize=(6, 6), dpi=200)
-    fig, ax = plt.subplots(figsize=(9,9), dpi=200)
+    fig, ax = plt.subplots(figsize=(9,9), dpi=150)
     # ax.set_facecolor('w')
     # country = ox.geocode_to_gdf('Europe, Netherlands')
     # # country.set_crs({'init': 'epsg:28992'})

@@ -49,8 +49,10 @@ def create_input_data_abm(G, paths, non_zero_flows, optimal_facilities):
     df_nodes.model_type = df_nodes.model_type.apply(lambda x: "inserted_node" if x == 0 else x)
     df_nodes.model_type = df_nodes.model_type.apply(lambda x: "intermediate_node" if str(x).isdigit() else x)
     df_nodes['index1'] = df_nodes.index
+
     df_nodes['charging_stations'] = df_nodes.index1.apply(
-        lambda x: optimal_facilities[x] if (x in df_h.harbour_node.unique()) or (len(str(x)) == 3) else 0)
+        lambda x: optimal_facilities[x] if x in optimal_facilities.keys() else 0)
+
     df_nodes.model_type = df_nodes.apply(lambda x: cs_harbour_or_both(x.charging_stations, x.model_type), axis=1)
 
     df_nodes.drop(columns=['index1', 'n', 'geometry', 'Wkt'], inplace=True)

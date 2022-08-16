@@ -38,16 +38,16 @@ class Infra(Agent):
 
     def remove(self, vessel):
         vessel.removed_at_step = self.model.schedule.time
-        vessel.model.agent_data['id'].append(vessel.unique_id)
-        vessel.model.agent_data['route'].append(vessel.route_key)
-        vessel.model.agent_data['time_departed'].append(vessel.generated_at_step)
-        vessel.model.agent_data['travel_time'].append(vessel.model.schedule.time - vessel.generated_at_step)
-        vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
-        vessel.model.agent_data['time_charging'].append(sum(vessel.waited_at.values()))
-        vessel.model.agent_data['time_charging_dest'].append(vessel.charged_at_dest)
-        vessel.model.agent_data['full_charging_info'].append(vessel.waited_at)
-        vessel.model.agent_data['distance_travelled'].append(vessel.location_offset)
-        vessel.model.agent_data['battery_size'].append(vessel.battery_size)
+        # vessel.model.agent_data['id'].append(vessel.unique_id)
+        # vessel.model.agent_data['route'].append(vessel.route_key)
+        # vessel.model.agent_data['time_departed'].append(vessel.generated_at_step)
+        # vessel.model.agent_data['travel_time'].append(vessel.model.schedule.time - vessel.generated_at_step)
+        # vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
+        # vessel.model.agent_data['time_charging'].append(sum(vessel.waited_at.values()))
+        # vessel.model.agent_data['time_charging_dest'].append(vessel.charged_at_dest)
+        # vessel.model.agent_data['full_charging_info'].append(vessel.waited_at)
+        # vessel.model.agent_data['distance_travelled'].append(vessel.location_offset)
+        # vessel.model.agent_data['battery_size'].append(vessel.battery_size)
 
         self.model.schedule.remove(vessel)
         self.vessel_removed_toggle = not self.vessel_removed_toggle

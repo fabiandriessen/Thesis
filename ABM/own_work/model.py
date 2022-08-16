@@ -58,12 +58,14 @@ def get_station_status(agent):
         return len(agent.currently_charging) / agent.modules
     else:
         return np.nan
-    
+
+
 def get_cs(agent):
     if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
         return agent.modules
     else:
         return np.nan
+
 
 # ---------------------------------------------------------------
 def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
@@ -138,26 +140,27 @@ class VesselElectrification(Model):
         self.type_engine_power = pickle.load(open('data/flow_comp_factors_unscaled.p', 'rb'))
         self.optimal_flows = pickle.load(open('data/non_zero_flows.p', 'rb'))
 
-        self.agent_data = {'id': [],
-                           'route': [],
-                           'time_departed': [],
-                           'travel_time': [],
-                           'time_in_line': [],
-                           'time_charging': [],
-                           'time_charging_dest': [],
-                           'full_charging_info': [],
-                           'distance_travelled': [],
-                           'battery_size': []}  # new dict to store data of removed agents, before removing
+        # self.agent_data = {'id': [],
+        #                    'route': [],
+        #                    'time_departed': [],
+        #                    'travel_time': [],
+        #                    'time_in_line': [],
+        #                    'time_charging': [],
+        #                    'time_charging_dest': [],
+        #                    'full_charging_info': [],
+        #                    'distance_travelled': [],
+        #                    'battery_size': []}  # new dict to store data of removed agents, before removing
 
-        self.datacollector = DataCollector(model_reporters={"data_completed_trips": "agent_data"},
-                                           agent_reporters={"vessel_status": (lambda x: get_vessel_status(x)),
-                                                            "vessel_route": (lambda x: get_key(x)),
-                                                            "battery_size": (lambda x: get_battery_size(x)),
-                                                            "battery_level": (lambda x: get_battery_level(x)),
-                                                            "generated_at": (lambda x: get_generation_time(x)),
-                                                            "removed_at": (lambda x: get_removal_time(x)),
-                                                            "station_status": (lambda x: get_station_status(x)),
-                                                            "charging_stations": (lambda x: get_cs(x))})
+        self.datacollector = DataCollector(
+            # model_reporters={"data_completed_trips": "agent_data"},
+            agent_reporters={"vessel_status": (lambda x: get_vessel_status(x)),
+                             "vessel_route": (lambda x: get_key(x)),
+                             "battery_size": (lambda x: get_battery_size(x)),
+                             "battery_level": (lambda x: get_battery_level(x)),
+                             "generated_at": (lambda x: get_generation_time(x)),
+                             "removed_at": (lambda x: get_removal_time(x)),
+                             "station_status": (lambda x: get_station_status(x)),
+                             "charging_stations": (lambda x: get_cs(x))})
 
         self.generate_model()
         self.datacollector.collect(self)
@@ -259,14 +262,15 @@ class VesselElectrification(Model):
                         to_pick = type_list
                         ship_type = np.random.choice(a=to_pick, size=1, replace=False, p=prob)
                         # print(ship_type, "Vessel departed at", df_1.origin[j], self.hour, ':', self.schedule.time,
-                              # "heading to", df_1.destination[j], "via route", df_1.key[j])
+                        # "heading to", df_1.destination[j], "via route", df_1.key[j])
 
                         unique_id = Harbour.vessel_counter  # give unique ID based on Harbour attribute
                         path = self.get_route(harbour, df_1.key[j])  # determine path based on route
                         generated_at = path[0]  # store origin
                         generated_by = self.schedule._agents[generated_at]  # store which agent generated this vessel
                         power = self.type_engine_power[ship_type[0]]  # look up engine power based on type
-                        battery_size = math.ceil((self.range / self.vessel_speed) * power)  # all ships are assumed to have equal r
+                        battery_size = math.ceil(
+                            (self.range / self.vessel_speed) * power)  # all ships are assumed to have equal r
 
                         # determine combination that this vessel will use
                         if len(self.optimal_flows[df_1.key[j]]['combinations']) == 1:
