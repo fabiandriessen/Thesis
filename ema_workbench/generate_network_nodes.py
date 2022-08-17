@@ -1,10 +1,8 @@
 import networkx as nx
 import pandas as pd
 import numpy as np
-import math
 
-
-def generate_network(G, paths, r):
+def generate_network(G, paths, nodes_to_add):
 
     """This is a function to generate a network with n additional nodes to minimize the maximum link length. A node is
     placed in the middle of the longest node, if a node already has been split, the original node will be split in
@@ -17,8 +15,8 @@ def generate_network(G, paths, r):
     paths: dict
         This dictionary should contain all the paths between the various origins and destinations as generated in
         notebook 3.
-    r: int
-        Range of a vessel.
+    nodes_to_add: int
+        The number of additional nodes that should be added to the network.
      """
 
     # retrieve data from G
@@ -33,16 +31,7 @@ def generate_network(G, paths, r):
     id_count = 100
     inserted = []
 
-    df_links = nx.to_pandas_edgelist(G)
-    df_links = df_links.loc[((df_links.source != '8860852') & (df_links.target != '8862614')) | (
-            (df_links.source != '8860852') & (df_links.target != '8861716'))]
-
-    for i in range(1000):
-        if math.ceil(max(df_links.length_m)) <= (r * 0.5):
-            print("There were", len(inserted), "nodes added, the longest remaining link is now:",
-                  df_links.length_m.max())
-            break
-
+    while len(inserted) < nodes_to_add:
         # update dataframes
         df_links = nx.to_pandas_edgelist(G)
         df_nodes = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
@@ -102,16 +91,10 @@ def generate_network(G, paths, r):
             G.add_edge(nodes_sequence[j], nodes_sequence[j + 1], length_m=(original_length / split_in),
                        split=int(to_split.split[0] + 1))
 
-        # redetermine df
         df_links = nx.to_pandas_edgelist(G)
-        df_links = df_links.loc[((df_links.source != '8860852') & (df_links.target != '8862614')) | (
-                (df_links.source != '8860852') & (df_links.target != '8861716'))]
-
-        # break out of loop if longest link is small enough
-        if math.ceil(max(df_links.length_m)) <= (r * 0.5):
-            print("There were", len(inserted), "nodes added, the longest remaining link is now:",
-                  df_links.length_m.max())
-            break
+        df_nodes = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
+    # else:
+    #     print("There were", len(inserted), "nodes added, the longest remaining link is now:", df_links.length_m.max())
 
     # fix insertion of additional nodes in route!
     for route, path in paths.items():

@@ -324,16 +324,16 @@ class Vessel(Agent):
                 if next_id in self.combi:
                     # charge here
                     self.arrive_at_next(next_infra, distance_rest, correct_overshoot=True)
-                    self.get_charging_time(next_infra)
+                    self.get_charging_time(self.location)
                     return
                 else:
                     self.arrive_at_next(next_infra, distance_rest)
 
             elif self.path_ids[self.target_index] == self.path_ids[-1]:
                 # arrive at next first (always)
-                next_id = self.path_ids[self.location_index]
+                next_id = self.path_ids[self.target_index]
                 next_infra = self.model.schedule._agents[next_id]
-                self.arrive_at_next(next_infra, distance_rest, correct_overshoot=True)
+                self.arrive_at_next(next_infra, distance_rest, correct_overshoot=True, final_dest=True)
                 if next_id in self.combi:
                     self.get_charging_time(self.location)
                     self.charged_at_dest = self.waiting_time
@@ -346,7 +346,7 @@ class Vessel(Agent):
             print("Bug detected, negative charge", self)
             self.model.running = False
 
-    def arrive_at_next(self, next_infra, location_offset, correct_overshoot=False):
+    def arrive_at_next(self, next_infra, location_offset, correct_overshoot=False, final_dest=True):
         """
         Arrive at next_infra with the given location_offset
         """
@@ -360,7 +360,7 @@ class Vessel(Agent):
         self.location.vessel_count += 1
 
         # update location
-        if location_offset != 0:
+        if not final_dest:
             self.pos = self.update_pos(location_offset)
         else:
             self.pos = next_infra.pos

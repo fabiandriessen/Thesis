@@ -89,7 +89,6 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
 
     for route_key, potential_locations in harbour_dict.items():
         h = []
-    # functioning shortcut, check if any single station is enough (e.g. dist < 2 x r)
         # create all possible station combinations on this path
         for L in range(0, len(potential_locations) + 1):
             for k in itertools.combinations(potential_locations, (L + 1)):
@@ -101,9 +100,11 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
     feasible_combinations = {}
 
     for route_key, route in route_refuel_comb.items():
+        # print('Evaluate route', route_key, route)
         feasible_combinations[route_key] = []
         # store path for this route (on which round trip should be feasible)
         harbours_on_route = harbour_dict[route_key]
+        # print('Harbours on route:', harbours_on_route)
         # this creates a list with (a, b, c, b, a) if route from a to c via b.
         round_trip = paths[route_key][:-1] + paths[route_key][::-1]
 
@@ -120,9 +121,10 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
             # simulate power levels during round trip
             # [1:] because first dest is second entry round trip list
             for sub_dest in round_trip[1:]:
-                # print('currently at', current_pos, 'traveling to', sub_dest, 'current range =', current_range)
                 # try to travel to new dest, first calculate dist to new destination
                 dist = nx.dijkstra_path_length(G, current_pos, sub_dest, weight='length_m')
+                # print('currently at', current_pos, 'traveling to', sub_dest, 'current range =', current_range,
+                # 'distance', dist)
                 # only travel if dist is not too long
                 if (current_range - dist) >= 0:
 
@@ -148,7 +150,6 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
     for route_key, combinations in feasible_combinations.items():
         if len(combinations) > 1:
             feasible_combinations[route_key] = get_minimal_subsets(feasible_combinations[route_key])
-    
     
     # Reformat data: create two dicts one with b_qh values and one with g_qhk values
     # first create list of all possible combinations

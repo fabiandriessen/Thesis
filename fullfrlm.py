@@ -29,7 +29,7 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
         Maximum capacity of a charging station per time unit.
     max_per_loc: int
         Maximum number of charging modules that may be placed at a location.
-    additional_nodes: Bolean
+    additional_nodes: Boolean
         True if additional nodes should be inserted into the original network.
     include_intersections: Boolean
     If this variable is True, intersections are also considered to place stations if additional_nodes is True.
@@ -47,13 +47,12 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     df_random = random_vessel_generator(df_ivs, load)
     flows = flow_computation(df_random)
 
-    # if additional nodes need to be considered, update G, paths and inserted accordingly
     inserted = []
+    # include intersections if True
     if additional_nodes:
         G, paths, inserted = generate_network(G, paths, r)
-        # include intersections if True
         if include_intersections:
-            inserted += determine_additional_nodes(G, paths, df_h, r)
+            inserted += determine_additional_nodes(G, df_h, r)
 
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,

@@ -2,7 +2,7 @@ from flow_computation import flow_computation
 from random_vessel_generator import random_vessel_generator
 from first_stage_frlm import first_stage_frlm
 from second_stage_frlm import second_stage_frlm
-from generate_network import generate_network
+from generate_network_nodes import generate_network
 from visualize_placement import visualize_placement
 from create_input_data_abm import create_input_data_abm
 from determine_additional_nodes import determine_additional_nodes
@@ -50,10 +50,11 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     # if additional nodes need to be considered, update G, paths and inserted accordingly
     inserted = []
     if additional_nodes != 0:
-        G, paths, inserted = generate_network(G, paths, r)
-        # include intersections if True
         if include_intersections:
-            inserted = determine_additional_nodes(G, df_h, additional_nodes)
+            inserted = determine_additional_nodes(G, paths, df_h, r)
+        else:
+            G, paths, inserted = generate_network(G, paths, r)
+        # include intersections if True
 
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,
