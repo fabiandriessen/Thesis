@@ -38,21 +38,19 @@ class Infra(Agent):
 
     def remove(self, vessel):
         vessel.removed_at_step = self.model.schedule.time
-        # vessel.model.agent_data['id'].append(vessel.unique_id)
-        # vessel.model.agent_data['route'].append(vessel.route_key)
-        # vessel.model.agent_data['time_departed'].append(vessel.generated_at_step)
-        # vessel.model.agent_data['travel_time'].append(vessel.model.schedule.time - vessel.generated_at_step)
-        # vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
-        # vessel.model.agent_data['time_charging'].append(sum(vessel.waited_at.values()))
-        # vessel.model.agent_data['time_charging_dest'].append(vessel.charged_at_dest)
-        # vessel.model.agent_data['full_charging_info'].append(vessel.waited_at)
-        # vessel.model.agent_data['distance_travelled'].append(vessel.location_offset)
-        # vessel.model.agent_data['battery_size'].append(vessel.battery_size)
+        vessel.model.agent_data['id'].append(vessel.unique_id)
+        vessel.model.agent_data['route'].append(vessel.route_key)
+        vessel.model.agent_data['time_departed'].append(vessel.generated_at_step)
+        vessel.model.agent_data['travel_time'].append(vessel.time_driving-1)  # correct for last step
+        vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
+        vessel.model.agent_data['time_charging'].append(vessel.time_waited)
+        vessel.model.agent_data['battery_size'].append(vessel.battery_size)
+        vessel.model.agent_data['combi'].append(vessel.combi)
 
         self.model.schedule.remove(vessel)
         self.vessel_removed_toggle = not self.vessel_removed_toggle
-        if vessel.unique_id == 1:
-            print(vessel)
+        # if vessel.unique_id == 1:
+        #     print(vessel)
         # print(str(self) + ' REMOVE ' + str(vessel))
 
 
@@ -117,10 +115,12 @@ class ChargingStation(Infra):
         self.charging_speed = charging_speed
         self.currently_charging = []
         self.line = []
+        self.users = 0
+        self.waiters = 0
+        self.steps_measuring = 0
+        self.max_line_l = 0
+        self.max_occupation = 0
 
-    """
-    Charges Vessels 
-    """
     def evaluate_waiting_line(self):
         # only evaluate line if there is a line and if there are charging spots free for the required amount of time
         if self.modules > len(self.currently_charging):
@@ -130,8 +130,23 @@ class ChargingStation(Infra):
                     self.currently_charging.append(to_charge)
                     to_charge.inline = False
 
+    def update_usage(self):
+        self.steps_measuring += 1
+        if self.currently_charging:
+            self.users += len(self.currently_charging)
+        if self.line:
+            self.waiters += len(self.line)
+
+        if self.max_occupation != self.modules:
+            self.max_occupation = max(len(self.currently_charging), self.max_occupation)
+
+        if len(self.line) > self.max_line_l:
+            self.max_line_l = len(self.line)
+
     def step(self):
         self.evaluate_waiting_line()
+        if self.model.schedule.time >= 60 * 24:
+            self.update_usage()
 
 
 # ---------------------------------------------------------------
@@ -158,6 +173,11 @@ class HarbourChargingStation(Infra):
         self.charging_speed = charging_speed  # KWh
         self.currently_charging = []
         self.line = []
+        self.users = 0
+        self.waiters = 0
+        self.steps_measuring = 0
+        self.max_line_l = 0
+        self.max_occupation = 0
 
     def evaluate_waiting_line(self):
         # only evaluate line if there is a line and if there are charging spots free for the required amount of time
@@ -168,8 +188,23 @@ class HarbourChargingStation(Infra):
                     self.currently_charging.append(to_charge)
                     to_charge.inline = False
 
+    def update_usage(self):
+        self.steps_measuring += 1
+        if self.currently_charging:
+            self.users += len(self.currently_charging)
+        if self.line:
+            self.waiters += len(self.line)
+
+        if self.max_occupation != self.modules:
+            self.max_occupation = max(len(self.currently_charging), self.max_occupation)
+
+        if len(self.line) > self.max_line_l:
+            self.max_line_l = len(self.line)
+
     def step(self):
         self.evaluate_waiting_line()
+        if self.model.schedule.time >= 60*24:
+            self.update_usage()
 
 
 # ---------------------------------------------------------------
@@ -241,8 +276,8 @@ class Vessel(Agent):
         self.pos = generated_by.pos
         self.current_path_length = nx.dijkstra_path_length(self.model.G, self.path_ids[self.location_index],
                                                            self.path_ids[self.location_index + 1], weight='length_m')
-        if self.unique_id == 1:
-            print('initial path length route', self.route_key, self.current_path_length)
+        # if self.unique_id == 1:
+        #     print('initial path length route', self.route_key, self.current_path_length)
         self.inline = False  # initially False, True if vessel stands inline
 
         # default values
@@ -252,6 +287,7 @@ class Vessel(Agent):
         self.waiting_time = 0  # variable to keep track of waiting time
         self.time_waited = 0  # variable to keep track the passed waiting time
         self.time_inline = 0  # total time spent waiting at any stations
+        self.time_driving = 0  # total time driving
         self.charged_at_dest = 0  # charging time before removed once dest is reached
         self.waited_at = {}  # dict with unique ID where vessel had to wait as a key, and the value is the time spent
         self.remove_if_charged = False  # if True, a vessel should be removed from the model once fully charged
@@ -276,10 +312,11 @@ class Vessel(Agent):
         Vessel waits or drives at each step
         """
         # update current path length and pos
-        if self.unique_id == 1:
-            print(self)
+        # if self.unique_id == 1:
+        #     print(self)
 
         if self.state == Vessel.State.WAIT:
+            self.time_waited += 1
             if self.inline:
                 self.time_inline += 1
             else:
@@ -296,8 +333,10 @@ class Vessel(Agent):
                     else:
                         # print('charged vessel continues journey:', self)
                         self.state = Vessel.State.DRIVE
+                        self.time_driving += 1
 
         if self.state == Vessel.State.DRIVE:
+            self.time_driving += 1
             self.drive()
 
         """

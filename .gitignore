@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 RWS_data/netherlands-latest.osm.pbf
 API.py
+ABM/own_work/data/agent_data.p

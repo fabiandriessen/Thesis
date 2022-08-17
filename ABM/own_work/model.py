@@ -75,6 +75,37 @@ def get_cs(agent):
         return np.nan
 
 
+def get_cs_occupation(agent):
+    if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
+        if (agent.users > 0) and (agent.steps_measuring > 0):
+            avg_occupation = agent.users/agent.steps_measuring
+            return avg_occupation
+        else:
+            return 0
+    else:
+        return np.nan
+
+def get_max_occupation(agent):
+    if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
+        return agent.max_occupation
+
+
+def get_cs_waiting_line(agent):
+    if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
+        if (agent.waiters > 0) and (agent.steps_measuring > 0):
+            avg_line_length = agent.waiters/agent.steps_measuring
+            return avg_line_length
+        else:
+            return 0
+    else:
+        return np.nan
+
+
+def get_max_line_length(agent):
+    if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
+        return agent.max_line_l
+
+
 # ---------------------------------------------------------------
 def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     """
@@ -148,29 +179,34 @@ class VesselElectrification(Model):
         self.type_engine_power = pickle.load(open('data/flow_comp_factors_unscaled.p', 'rb'))
         self.optimal_flows = pickle.load(open('data/non_zero_flows.p', 'rb'))
 
-        # self.agent_data = {'id': [],
-        #                    'route': [],
-        #                    'time_departed': [],
-        #                    'travel_time': [],
-        #                    'time_in_line': [],
-        #                    'time_charging': [],
-        #                    'time_charging_dest': [],
-        #                    'full_charging_info': [],
-        #                    'distance_travelled': [],
-        #                    'battery_size': []}  # new dict to store data of removed agents, before removing
+        self.agent_data = {'id': [],
+                           'route': [],
+                           'combi': [],
+                           'time_departed': [],
+                           'travel_time': [],
+                           'time_in_line': [],
+                           'time_charging': [],
+                           'battery_size': []}  # new dict to store data of removed agents, before removing
+
 
         self.datacollector = DataCollector(
-            # model_reporters={"data_completed_trips": "agent_data"},
-            agent_reporters={"vessel_status": (lambda x: get_vessel_status(x)),
-                             "vessel_route": (lambda x: get_key(x)),
-                             "combi": (lambda x: get_combi(x)),
-                             "departed_from": lambda x: get_departed_from(x),
-                             "battery_size": (lambda x: get_battery_size(x)),
-                             "battery_level": (lambda x: get_battery_level(x)),
-                             "generated_at": (lambda x: get_generation_time(x)),
-                             "removed_at": (lambda x: get_removal_time(x)),
-                             "station_status": (lambda x: get_station_status(x)),
-                             "charging_stations": (lambda x: get_cs(x))})
+            model_reporters={"data_completed_trips": "agent_data"},
+            agent_reporters={"occupation": (lambda x: get_cs_occupation(x)),
+                             "max_occupation": (lambda x: get_max_occupation(x)),
+                             "avg_line": (lambda x: get_cs_waiting_line(x)),
+                             "max_line": (lambda x: get_max_line_length(x)),
+
+                             # "vessel_status": (lambda x: get_vessel_status(x)),
+                             # "vessel_route": (lambda x: get_key(x)),
+                             # "combi": (lambda x: get_combi(x)),
+                             # "departed_from": lambda x: get_departed_from(x),
+                             # "battery_size": (lambda x: get_battery_size(x)),
+                             # "battery_level": (lambda x: get_battery_level(x)),
+                             # "generated_at": (lambda x: get_generation_time(x)),
+                             # "removed_at": (lambda x: get_removal_time(x)),
+                             # "station_status": (lambda x: get_station_status(x)),
+                             "charging_stations": (lambda x: get_cs(x))
+                             })
 
         self.generate_model()
         self.datacollector.collect(self)
@@ -268,8 +304,8 @@ class VesselElectrification(Model):
                     prob = list(df_hour.iloc[i, 4:-2].values / df_hour.iloc[i, 4:-2].sum())
                     to_pick = type_list
                     ship_type = np.random.choice(a=to_pick, size=1, replace=False, p=prob)
-                    print(ship_type, "Vessel departed at", row['origin'], self.hour, ':', self.schedule.time,
-                          "heading to", row['destination'], "via route", row['key'])
+                    # print(ship_type, "Vessel departed at", row['origin'], self.hour, ':', self.schedule.time,
+                    # "heading to", row['destination'], "via route", row['key'])
                     unique_id = Harbour.vessel_counter  # give unique ID based on Harbour attribute
                     path = self.get_route(row['key'])  # determine path based on route, 50% to depart at port
                     generated_at = path[0]  # store origin
