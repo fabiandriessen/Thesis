@@ -1,9 +1,8 @@
 import pandas as pd
 import pickle
-batch_data = pickle.load(open('ABM/own_work/data/batch_run_result.p', 'rb'))
 
 
-def get_vessel_data_batch(df_batch=batch_data):
+def get_vessel_data_batch(df_batch):
     df_batch = pd.DataFrame(df_batch)
     df_batch = df_batch.loc[df_batch.Step>0]
     df_vessels = df_batch.groupby('RunId').first()
@@ -14,11 +13,10 @@ def get_vessel_data_batch(df_batch=batch_data):
     return vessel_df
 
 
-def get_cs_data_batch(df_batch=batch_data):
+def get_cs_data_batch(df_batch):
     df_batch = pd.DataFrame(df_batch)
     df_batch = df_batch.loc[df_batch.Step>0]
-    df_charging_stations = df_batch.groupby(['AgentID']).mean()
-    df_charging_stations = df_charging_stations.loc[df_charging_stations.charging_stations>0].sort_values('occupation')
-    df_charging_stations = df_charging_stations.drop(columns=['RunId', 'iteration', 'Step', 'seed'])
+    df_charging_stations = df_batch.loc[df_batch.charging_stations > 0]
+    # df_charging_stations = df_charging_stations.drop(columns=['RunId', 'iteration', 'Step', 'seed'])
     return df_charging_stations
 

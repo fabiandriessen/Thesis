@@ -14,13 +14,15 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_per_loc, df_random,
+def flow_refueling_location_model(load, seed, r, stations_to_place, station_cap, max_per_loc,
                                   additional_nodes=False, include_intersections=False, vis=False, exclude=None):
     """
     Parameters
     ----------
     load:float
         Percentage of vessels on the network compared to the 2021 total.
+    seed:int
+        Random seed to use for random data generation
     r:int
         Range of a vessel.
     stations_to_place:int
@@ -29,9 +31,6 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
         Maximum capacity of a charging station per time unit.
     max_per_loc: int
         Maximum number of charging modules that may be placed at a location.
-    df_random: pd.DataFrame
-        Random sample generated using the random vessel generator
-
     additional_nodes: Boolean
         True if additional nodes should be inserted into the original network.
     include_intersections: Boolean
@@ -48,11 +47,18 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
 
     G = pickle.load(open('data/network_cleaned_final.p', 'rb'))
     df_h = pickle.load(open("data/revised_cleaning_results/harbour_data_100.p", "rb"))
+    df_ivs = pickle.load(open("data/revised_cleaning_results/ivs_exploded_100.p", "rb"))
     path_lengths = pickle.load(open("data/revised_cleaning_results/path_lengths_ship_specific_routes.p", "rb"))
     paths = pickle.load(open('data/final_paths.p', "rb"))
 
+
     # generate random data
-    # df_random = random_vessel_generator(df_ivs, load)
+    # df_random = random_vessel_generator(df_ivs, seed, load)
+    df_prob = df_ivs
+    df_prob = df_prob.loc[df_prob.trip_count != 0]
+    df_prob.reset_index(inplace=True, drop=True)
+    df_prob = df_prob.fillna(0)
+    df_random = df_prob
     flows = flow_computation(df_random)
 
     inserted = []

@@ -43,7 +43,9 @@ def second_stage_frlm(r, v, b, p, c, max_per_loc, df_g, df_b, df_eq_fq):
     # constraint 1.5 already incorporated
     # create list of index to be able to loop over double index
 
-    # daily capacity equal to the number of small vessels a station can serve
+
+
+    # daily capacity equal to the number of small vessels a
     daily_cap = 24/(((r/v)*b)/c)
 
     a = df_g.reset_index()

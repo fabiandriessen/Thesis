@@ -19,12 +19,12 @@ def get_minimal_subsets(sets):
         if not any(minimal_subset.issubset(s) for minimal_subset in minimal_subsets):
             minimal_subsets.append(s)
     # added, converge to tuple
-    tuples_inside = [tuple (k) for k in minimal_subsets]
+    tuples_inside = [tuple(k) for k in minimal_subsets]
 
     return tuples_inside
 
 
-def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None):
+def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None, exclude=None):
     """
     Returns feasible charging station combinations for transport network G for routes in OD,
     considering travel range r, assuming that charging stations can be placed on any node of G.
@@ -54,12 +54,17 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
     additional_nodes: list
         This is a list that should contain all additional harbour nodes to be considered, next to the origin and
         destination harbours.
+    exclude: list
+        This is a list that should contain all nodes that should not be considered to place charging stations.
         """
+
     # load in harbour exits that are created in notebook harbour exits
     if additional_nodes is None:
         additional_nodes = []
 
     harbour_nodes = list(df_h.harbour_node.unique()) + additional_nodes
+    if exclude:
+        harbour_nodes = list(set(harbour_nodes) - set(exclude))
 
     harbour_dict = {}
     # collect paths to refuel and path lengths in dicts, first create empty dicts
@@ -125,6 +130,7 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
                 dist = nx.dijkstra_path_length(G, current_pos, sub_dest, weight='length_m')
                 # print('currently at', current_pos, 'traveling to', sub_dest, 'current range =', current_range,
                 # 'distance', dist)
+
                 # only travel if dist is not too long
                 if (current_range - dist) >= 0:
 
@@ -150,7 +156,7 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
     for route_key, combinations in feasible_combinations.items():
         if len(combinations) > 1:
             feasible_combinations[route_key] = get_minimal_subsets(feasible_combinations[route_key])
-    
+
     # Reformat data: create two dicts one with b_qh values and one with g_qhk values
     # first create list of all possible combinations
     unique_combinations = []

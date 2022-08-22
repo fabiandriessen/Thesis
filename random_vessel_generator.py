@@ -2,16 +2,19 @@ import pandas as pd
 import numpy as np
 
 
-def random_vessel_generator(df_prob, load=1):
+def random_vessel_generator(df_prob, seed, load=1):
     """ Function to generate random vessel data.
     Parameters
     ----------
     df_prob: pd.DataFrame
     This dataframe must contain historical travel data
+    seed: int
+        random seed to use for numpy random functions
     load: float
     This float is equal to the simulated occupation of the network and may be read as the part of the traffic that is
     electric.
     """
+    np.random.seed(seed)
     df_prob = df_prob.loc[df_prob.trip_count != 0]
     df_prob.reset_index(inplace=True, drop=True)
     df_prob = df_prob.fillna(0)

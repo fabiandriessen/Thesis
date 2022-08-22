@@ -1,6 +1,6 @@
 import networkx as nx
 import pandas as pd
-from generate_network_nodes import generate_network
+from generate_network import generate_network
 
 
 def calc_max_l_adjacent(n, G):

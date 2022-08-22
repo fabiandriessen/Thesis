@@ -2,9 +2,7 @@ from flow_computation import flow_computation
 from random_vessel_generator import random_vessel_generator
 from first_stage_frlm import first_stage_frlm
 from second_stage_frlm import second_stage_frlm
-from generate_network_nodes import generate_network
-from visualize_placement import visualize_placement
-from create_input_data_abm import create_input_data_abm
+from generate_network import generate_network
 from determine_additional_nodes import determine_additional_nodes
 import pickle
 
@@ -14,13 +12,15 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_per_loc, additional_nodes=0,
-                                  include_intersections=False, vis=False):
-    """abc
+def flow_refueling_location_model(load, seed, r, stations_to_place, station_cap, max_per_loc,
+                                  additional_nodes=0):
+    """
     Parameters
     ----------
     load:float
         Percentage of vessels on the network compared to the 2021 total.
+    seed:int
+        Random seed to use for random data generation
     r:int
         Range of a vessel.
     stations_to_place:int
@@ -30,13 +30,11 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     max_per_loc: int
         Maximum number of charging modules that may be placed at a location.
     additional_nodes: int
-        Number of additional nodes that should be inserted into the original network.
-    include_intersections: Boolean
-    If this variable is True, intersections are also considered to place stations if additional_nodes > 0.
-
-    vis: Boolean
-    If this variable is True, a visualisation is presented
+        If 0, no additional nodes. If 1, only apply heuristic 1. If 2, also apply heuristic 2.
+    exclude: list
+        A list of nodes that should not be considered to place stations.
     """
+
     G = pickle.load(open('data/network_cleaned_final.p', 'rb'))
     df_h = pickle.load(open("data/revised_cleaning_results/harbour_data_100.p", "rb"))
     df_ivs = pickle.load(open("data/revised_cleaning_results/ivs_exploded_100.p", "rb"))
@@ -44,17 +42,18 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
     paths = pickle.load(open('data/final_paths.p', "rb"))
 
     # generate random data
-    df_random = random_vessel_generator(df_ivs, load)
+    df_random = random_vessel_generator(df_ivs, seed, load)
     flows = flow_computation(df_random)
 
-    # if additional nodes need to be considered, update G, paths and inserted accordingly
     inserted = []
-    if additional_nodes != 0:
-        if include_intersections:
-            inserted = determine_additional_nodes(G, paths, df_h, r)
-        else:
-            G, paths, inserted = generate_network(G, paths, r)
-        # include intersections if True
+    # include intersections if True
+    if additional_nodes == 1:
+        G, paths, inserted = generate_network(G, paths, r)
+    elif additional_nodes == 2:
+        inserted += determine_additional_nodes(G, df_h, r)
+    elif additional_nodes == 3:
+        G, paths, inserted = generate_network(G, paths, r)
+        inserted += determine_additional_nodes(G, df_h, r)
 
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,
@@ -72,31 +71,35 @@ def flow_refueling_location_model(load, r, stations_to_place, station_cap, max_p
 
     fraction_captured_total = (supported_flow / total_flow)
 
-    serveable_fraction = (max_supported / total_flow)
+    serviceable_fraction = (max_supported / total_flow)
 
     served_fraction = (supported_flow / max_supported)
 
-    df_abm = create_input_data_abm(G, paths, non_zero_flows, optimal_facilities)
+    facilities = [i for i in optimal_facilities.keys() if optimal_facilities[i] > 0]
 
-    if vis:
-        visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
+    extra_nodes_used = list(set(facilities) - set(list(df_h.harbour_node)))
+    extra_nodes_used = float(len(extra_nodes_used))
 
-    # store range and capacity per day of a station?
-    df_abm['range'] = r
-    df_abm['capacity'] = station_cap
+    # df_abm = create_input_data_abm(G, paths, non_zero_flows, optimal_facilities)
 
-    # configure df random for abm
-    df_random['key'] = df_random.apply(lambda x: create_key(x.origin, x.destination, x.route_v), axis=1)
-    df_random = df_random.loc[df_random.key.isin(non_zero_flows.keys())]
-    df_random = df_random.loc[df_random.trip_count != 0]
+    # if vis:
+    #     visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
 
-    pickle.dump(feasible_combinations, open('ABM/own_work/data/feasible_comb.p', 'wb'))
-    pickle.dump(G, open("ABM/own_work/data/network.p", "wb"))
-    pickle.dump(paths, open("ABM/own_work/data/paths.p", "wb"))
-    pickle.dump(df_abm, open("ABM/own_work/data/df_abm.p", "wb"))
-    pickle.dump(df_random, open("ABM/own_work/data/df_random.p", "wb"))
-    pickle.dump(non_zero_flows, open("ABM/own_work/data/non_zero_flows.p", "wb"))
-    df_abm.to_csv('ABM/own_work/data/df_abm.csv')
+    # # store range and capacity per day of a station?
+    # df_abm['range'] = r
+    # df_abm['capacity'] = station_cap
+    #
+    # # configure df random for abm
+    # df_random['key'] = df_random.apply(lambda x: create_key(x.origin, x.destination, x.route_v), axis=1)
+    # df_random = df_random.loc[df_random.key.isin(non_zero_flows.keys())]
+    # df_random = df_random.loc[df_random.trip_count != 0]
+    #
+    # pickle.dump(feasible_combinations, open('ABM/own_work/data/feasible_comb.p', 'wb'))
+    # pickle.dump(G, open("ABM/own_work/data/network.p", "wb"))
+    # pickle.dump(paths, open("ABM/own_work/data/paths.p", "wb"))
+    # pickle.dump(df_abm, open("ABM/own_work/data/df_abm.p", "wb"))
+    # pickle.dump(df_random, open("ABM/own_work/data/df_random.p", "wb"))
+    # pickle.dump(non_zero_flows, open("ABM/own_work/data/non_zero_flows.p", "wb"))
+    # df_abm.to_csv('ABM/own_work/data/df_abm.csv')
 
-    return total_flow, fraction_captured_total, serveable_fraction, served_fraction, optimal_facilities, \
-        non_zero_flows, routes_supported, paths, G, df_abm, df_random
+    return total_flow, fraction_captured_total, serviceable_fraction, served_fraction, routes_supported, extra_nodes_used
