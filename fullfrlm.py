@@ -14,36 +14,47 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(load, seed, r, stations_to_place, station_cap, max_per_loc,
-                                  additional_nodes=False, include_intersections=False, vis=False, exclude=None):
+def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, station_cap, max_per_loc, random_data=False,
+                                  additional_nodes=False, include_intersections=False, vis=False):
     """
     Parameters
     ----------
-    load:float
-        Percentage of vessels on the network compared to the 2021 total.
-    seed:int
-        Random seed to use for random data generation
-    r:int
+    r : int
         Range of a vessel.
+
+    v : int
+        travel speed resulting in the range
+
+    p_b : int
+        power of basis vessel [M1]
+
     stations_to_place:int
         Total number of charging modules to place.
+
     station_cap: int
         Maximum capacity of a charging station per time unit.
+
     max_per_loc: int
         Maximum number of charging modules that may be placed at a location.
+
+    load:float
+        Percentage of vessels on the network compared to the 2021 total to create if random data is used
+
+    seed:int
+        Random seed to use for random data generation
+
+    random_data: Boolean
+        If True, run the model with random sample based instead of the empirical data
+
     additional_nodes: Boolean
         True if additional nodes should be inserted into the original network.
+
     include_intersections: Boolean
     If this variable is True, intersections are also considered to place stations if additional_nodes is True.
 
     vis: Boolean
     If this variable is True, a visualisation is presented
-
-    exclude: list
-        A list of nodes that should not be considered to place stations.
     """
-    if exclude is None:
-        exclude = []
 
     G = pickle.load(open('data/network_cleaned_final.p', 'rb'))
     df_h = pickle.load(open("data/revised_cleaning_results/harbour_data_100.p", "rb"))
@@ -51,15 +62,17 @@ def flow_refueling_location_model(load, seed, r, stations_to_place, station_cap,
     path_lengths = pickle.load(open("data/revised_cleaning_results/path_lengths_ship_specific_routes.p", "rb"))
     paths = pickle.load(open('data/final_paths.p', "rb"))
 
-
     # generate random data
-    # df_random = random_vessel_generator(df_ivs, seed, load)
-    df_prob = df_ivs
-    df_prob = df_prob.loc[df_prob.trip_count != 0]
-    df_prob.reset_index(inplace=True, drop=True)
-    df_prob = df_prob.fillna(0)
-    df_random = df_prob
-    flows = flow_computation(df_random)
+    if random_data:
+        df_random = random_vessel_generator(df_ivs, seed, load)
+        flows = flow_computation(df_random)
+    else:
+        df_prob = df_ivs
+        df_prob = df_prob.loc[df_prob.trip_count != 0]
+        df_prob.reset_index(inplace=True, drop=True)
+        df_prob = df_prob.fillna(0)
+        df_random = df_prob
+        flows = flow_computation(df_random)
 
     inserted = []
     # include intersections if True
@@ -71,11 +84,12 @@ def flow_refueling_location_model(load, seed, r, stations_to_place, station_cap,
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,
                                                                    path_lengths=path_lengths, df_h=df_h,
-                                                                   additional_nodes=inserted, exclude=exclude)
+                                                                   additional_nodes=inserted)
 
     # execute second stage
     optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported = second_stage_frlm(
-        r, 15000, 175, stations_to_place, station_cap, max_per_loc, df_g, df_b, df_eq_fq)
+        r, v, p_b, stations_to_place, station_cap, max_per_loc, df_g, df_b, df_eq_fq)
+
     # collect data
     total_flow = sum(flows.values())
 

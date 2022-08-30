@@ -24,7 +24,7 @@ def get_minimal_subsets(sets):
     return tuples_inside
 
 
-def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None, exclude=None):
+def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None):
     """
     Returns feasible charging station combinations for transport network G for routes in OD,
     considering travel range r, assuming that charging stations can be placed on any node of G.
@@ -63,17 +63,11 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None,
         additional_nodes = []
 
     harbour_nodes = list(df_h.harbour_node.unique()) + additional_nodes
-    if exclude:
-        harbour_nodes = list(set(harbour_nodes) - set(exclude))
-
     harbour_dict = {}
     # collect paths to refuel and path lengths in dicts, first create empty dicts
 
     # dict to collect eq and fq values
     dict_eq_fq = {'q': [], 'e_q': [], 'f_q': []}
-
-    # create list with all nodes in keys and combinations
-    # nodes_in_comb =[]
 
     # for each route
     for (origin, destination, version), flow in OD.items():
