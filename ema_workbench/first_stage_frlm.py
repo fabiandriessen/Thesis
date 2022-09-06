@@ -54,8 +54,6 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
     additional_nodes: list
         This is a list that should contain all additional harbour nodes to be considered, next to the origin and
         destination harbours.
-    exclude: list
-        This is a list that should contain all nodes that should not be considered to place charging stations.
         """
 
     # load in harbour exits that are created in notebook harbour exits

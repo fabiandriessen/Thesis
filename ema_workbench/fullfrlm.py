@@ -3,8 +3,6 @@ from random_vessel_generator import random_vessel_generator
 from first_stage_frlm import first_stage_frlm
 from second_stage_frlm import second_stage_frlm
 from generate_network import generate_network
-from visualize_placement import visualize_placement
-from create_input_data_abm import create_input_data_abm
 from determine_additional_nodes import determine_additional_nodes
 import pickle
 
@@ -14,8 +12,8 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max_per_loc, load=1, seed=None,
-                                  random_data=False, additional_nodes=False, include_intersections=False):
+def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max_per_loc, o=24, load=1, seed=None,
+                                  random_data=False, additional_nodes=0):
     """
     r : int
         Range of a vessel.
@@ -44,8 +42,8 @@ def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max
     random_data: Boolean
         If True, run the model with random sample based instead of the empirical data
 
-    additional_nodes: Boolean
-        True if additional nodes should be inserted into the original network.
+    additional_nodes: int
+        applied heuristic, 0 is none, 1 is 1, 2 = 2 , 3 is both
 
     include_intersections: Boolean
     If this variable is True, intersections are also considered to place stations if additional_nodes is True.
@@ -74,10 +72,13 @@ def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max
 
     inserted = []
     # include intersections if True
-    if additional_nodes:
-        G, paths, inserted = generate_network(G, paths, r)
-        if include_intersections:
-            inserted += determine_additional_nodes(G, df_h, r)
+    if additional_nodes == 3:
+        G, paths, inserted = generate_network(G, paths)
+        inserted += determine_additional_nodes(G, df_h)
+    elif additional_nodes == 2:
+        G, paths, inserted = generate_network(G, paths)
+    elif additional_nodes == 1:
+        inserted += determine_additional_nodes(G, df_h)
 
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,
@@ -86,8 +87,8 @@ def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max
 
     # execute second stage
     optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported = second_stage_frlm(
-        r, v, p_b, stations_to_place, station_cap, max_per_loc, df_g, df_b, df_eq_fq)
-    
+        r, v, p_b, stations_to_place, station_cap, max_per_loc, o, df_g, df_b, df_eq_fq)
+
     # collect data
     total_flow = sum(flows.values())
 
@@ -96,10 +97,23 @@ def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max
 
     fraction_captured_total = (supported_flow / total_flow)
 
-    serveable_fraction = (max_supported / total_flow)
+    serviceable_fraction = (max_supported / total_flow)
 
     served_fraction = (supported_flow / max_supported)
 
+    # extra_nodes_used = [i for i, j in optimal_facilities.items() if j > 0]
+    # extra_nodes_used = list(set(extra_nodes_used) - set(df_h.harbour_node))
+    # extra_nodes_used = len(extra_nodes_used)
+    # extra_nodes_used = float(extra_nodes_used)
+
+    # h_nodes = inserted + list(df_h.harbour_node)
+    # extra_nodes_sol = []
+    # add_feasible = feasible_combinations.copy()
+    # for i, j in feasible_combinations.items():
+    #     for combi in j:
+    #         combies = []
+    #         if any(combi) in h_nodes:
+    #             d
     # df_abm = create_input_data_abm(G, paths, non_zero_flows, optimal_facilities)
 
     # if vis:
@@ -122,4 +136,4 @@ def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max
     # pickle.dump(non_zero_flows, open("ABM/own_work/data/non_zero_flows.p", "wb"))
     # df_abm.to_csv('ABM/own_work/data/df_abm.csv')
 
-    return total_flow, fraction_captured_total, serveable_fraction, served_fraction, routes_supported
+    return supported_flow, total_flow, fraction_captured_total, serviceable_fraction, served_fraction, routes_supported

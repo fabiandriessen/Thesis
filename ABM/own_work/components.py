@@ -46,6 +46,7 @@ class Infra(Agent):
         vessel.model.agent_data['time_charging'].append(vessel.time_waited)
         vessel.model.agent_data['battery_size'].append(vessel.battery_size)
         vessel.model.agent_data['combi'].append(vessel.combi)
+        vessel.model.agent_data['generation_hour'].append(vessel.hour)
 
         self.model.schedule.remove(vessel)
         self.vessel_removed_toggle = not self.vessel_removed_toggle
@@ -295,6 +296,7 @@ class Vessel(Agent):
         self.removed_at_step = None
         self.speed = 15000 / 60  # 15 5km/h translated into meter per min, diff speeds for diff ships possible
         self.step_time = 1  # One tick represents 1 minute
+        self.hour = self.model.hour
 
         # departs fully charged if charging station at harbour, otherwise half full (consistent with assumption frlm)
         if self.location.unique_id in combi:

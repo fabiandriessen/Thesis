@@ -4,7 +4,7 @@ import numpy as np
 import math
 
 
-def generate_network(G, paths, r):
+def generate_network(G, paths, r=50000):
 
     """This is a function to generate a network with n additional nodes to minimize the maximum link length. A node is
     placed in the middle of the longest node, if a node already has been split, the original node will be split in

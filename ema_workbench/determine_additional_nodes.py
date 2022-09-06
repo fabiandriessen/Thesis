@@ -16,7 +16,7 @@ def calc_max_l_adjacent(n, G):
     return length_adjacent
 
 
-def determine_additional_nodes(G, df_h, r):
+def determine_additional_nodes(G, df_h, r=50000):
     df_nodes = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
 
     pos_dict = {}

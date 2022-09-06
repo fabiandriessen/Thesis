@@ -2,7 +2,8 @@ import networkx as nx
 import pandas as pd
 import numpy as np
 
-def generate_network(G, paths, nodes_to_add):
+
+def generate_network(G, paths, nodes_to_add=50):
 
     """This is a function to generate a network with n additional nodes to minimize the maximum link length. A node is
     placed in the middle of the longest node, if a node already has been split, the original node will be split in

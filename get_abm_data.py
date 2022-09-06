@@ -4,11 +4,12 @@ import pickle
 
 def get_vessel_data_batch(df_batch):
     df_batch = pd.DataFrame(df_batch)
-    df_batch = df_batch.loc[df_batch.Step>0]
-    df_vessels = df_batch.groupby('RunId').first()
+    df_batch = df_batch.loc[df_batch.Step > 0]
+    df_vessels = df_batch.groupby('RunId').last()
     vessel_df = pd.DataFrame(df_vessels['data_completed_trips'][0])
     for i in range(2, len(df_vessels['data_completed_trips'])):
-        df_temp = pd.DataFrame(df_vessels['data_completed_trips'][0])
+        # Variable i is not used now!!
+        df_temp = pd.DataFrame(df_vessels['data_completed_trips'][i])
         vessel_df = pd.concat([vessel_df, df_temp])
     return vessel_df
 

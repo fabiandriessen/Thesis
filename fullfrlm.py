@@ -14,8 +14,8 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, station_cap, max_per_loc, random_data=False,
-                                  additional_nodes=False, include_intersections=False, vis=False):
+def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, station_cap, max_per_loc, o=24,
+                                  random_data=False, additional_nodes=False, include_intersections=False, vis=False):
     """
     Parameters
     ----------
@@ -88,7 +88,7 @@ def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, stat
 
     # execute second stage
     optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported = second_stage_frlm(
-        r, v, p_b, stations_to_place, station_cap, max_per_loc, df_g, df_b, df_eq_fq)
+        r, v, p_b, stations_to_place, station_cap, max_per_loc, o, df_g, df_b, df_eq_fq)
 
     # collect data
     total_flow = sum(flows.values())
@@ -98,7 +98,7 @@ def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, stat
 
     fraction_captured_total = (supported_flow / total_flow)
 
-    serveable_fraction = (max_supported / total_flow)
+    serviceable_fraction = (max_supported / total_flow)
 
     served_fraction = (supported_flow / max_supported)
 
@@ -124,5 +124,5 @@ def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, stat
     pickle.dump(non_zero_flows, open("ABM/own_work/data/non_zero_flows.p", "wb"))
     df_abm.to_csv('ABM/own_work/data/df_abm.csv')
 
-    return total_flow, fraction_captured_total, serveable_fraction, served_fraction, optimal_facilities, \
-        non_zero_flows, routes_supported, paths, G, df_abm, df_random
+    return total_flow, fraction_captured_total, serviceable_fraction, served_fraction, optimal_facilities, \
+        non_zero_flows, routes_supported, paths, G, df_abm, df_random, max_supported
