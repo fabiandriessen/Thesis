@@ -48,7 +48,7 @@ def second_stage_frlm(r, v, b, p, c, max_per_loc, o, df_g, df_b, df_eq_fq):
 
     # daily capacity equal to the number of small vessels a station can serve
     daily_cap = (o*c*v)/(r*b)
-    # print(daily_cap)
+    print(daily_cap)
 
     a = df_g.reset_index()
     flow_a = []
