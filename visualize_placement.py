@@ -78,6 +78,7 @@ def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, 
         nx.draw_networkx_nodes(G, pos_dict, other_ks, node_color='blue', alpha=1, node_size=30, ax=ax,
                                label='Unused locations')
     plt.legend(fontsize=6)
+
     x1, x2, y1, y2 = 3.566619, 6.944693, 50.860830, 53.444274
     z = 0.53
     ax.imshow(img, extent=[x1-z, x2+z, y1-z+0.3, y2+z-0.3])
