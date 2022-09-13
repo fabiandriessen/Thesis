@@ -77,9 +77,9 @@ def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, stat
     inserted = []
     # include intersections if True
     if additional_nodes:
-        G, paths, inserted = generate_network(G, paths, r)
+        G, paths, inserted = generate_network(G, paths)
         if include_intersections:
-            inserted += determine_additional_nodes(G, df_h, r)
+            inserted += determine_additional_nodes(G, df_h)
 
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,
