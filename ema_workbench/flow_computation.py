@@ -2,38 +2,47 @@ import pandas as pd
 import pickle
 
 
-def flow_computation(df):
+def flow_computation(df, r, path_lengths, individual_speed=True):
     """
     Parameters
     ----------
     df: pd.Dataframe
-    This dataframe is compiled using the random_vessel_generator."""
-    # ship_data = pickle.load(open("data/flow_comp_factors.p", "rb"))
+    This dataframe is compiled using the random_vessel_generator.
+
+    r: int
+    The range of a ship that should be considered, this is used calculate the battery sizes of the various ships.
+
+    individual_speed: Boolean
+    If true, use individual speeds to calculate battery sizes, else use one value for all the ships.
+    """
+    # read in ship data
     ship_data = pd.read_excel('data/ship_types.xlsx')
-    ship_data.fillna(0, inplace=True)
-    ship_data = dict(zip(ship_data['RWS-class'], ship_data['Factor']))
-    # pickle.dump(ship_data, open("data/flow_comp_factors.p", "wb"))
+
+    # determine battery size using either individual or mean speed, speed must be converted to m/h from m/s.
+    if individual_speed:
+        ship_data['battery_size'] = ship_data.apply(lambda x: (60000 / (x.speed_loaded * 3.6 * 1000)) * x.P_average,
+                                                    axis=1)
+    else:
+        ship_data['battery_size'] = ship_data.apply(lambda x: (r/(ship_data.speed_loaded.mean() * 3.6 * 1000))
+                                                    * x.P_average)
+
+    # determine factors based on battery size
+    ship_data['Factor'] = ship_data.battery_size.apply(lambda n: (n / ship_data.battery_size[0]))
+    ship_data = dict(zip(ship_data['RWS-class'], ship_data['battery_size']))
 
     # prepare dataframe
     df = df.groupby(by=['origin', 'destination', 'route_v']).sum().reset_index().drop(columns=['hour'])
 
-    df = df[['origin', 'destination', 'trip_count', 'M12', 'M8', 'BII-6b', 'M10', 'BIIa-1', 'M9', 'BII-6l',
-                       'C3b', 'BII-4', 'M7', 'M6', 'BIIL-1', 'C3l', 'M5', 'M11', 'BI', 'M3', 'M2', 'M1', 'BII-1',
-                       'BII-2b', 'M4', 'B03', 'C4', 'B04', 'C2l', 'BII-2L', 'B02', 'C1b', 'C2b', 'B01', 'C1l',
-                       'route_v']]
-
     # create dict to store path based values
     flows = {}
-    # loop over data frame
-    for i in range(len(df)):
-        # subset all data ship type data
-        a = df.iloc[:, 3:-1]
-        # flow is initially 0
-        flow = 0
-        # add number of ships times specific ship type weighing factor
-        for row in a.columns:
-            flow += ship_data[row] * a[row][i]
-        # store flow, divide by 365 to get daily flow
-        flows[(df.origin[i], df.destination[i], df.route_v[i])] = (flow/365)
-    return flows
 
+    # loop over all unique routes
+    for _, row in df.iterrows():
+        q = (row['origin'], row['destination'], row['route_v'])
+        flow = 0
+        # sum flow factor for each ship type
+        for ship_type, battery_size in ship_data.items():
+            flow += row[ship_type] * battery_size
+        flows[q] = (flow / 365) * (path_lengths[q]/r)
+
+    return flows  # flows are in kWh now!

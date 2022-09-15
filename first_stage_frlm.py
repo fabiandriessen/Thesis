@@ -7,7 +7,7 @@ import pickle
 # this script is copied from:
 # https://stackoverflow.com/questions/50634876/how-can-you-remove-superset-lists-from-a-list-of-lists-in-python
 def get_minimal_subsets(sets):
-    """"
+    """
     This function removes all subsets from a list of tuples.
     Parameters
     ----------
@@ -32,30 +32,34 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
     ----------
     r : float
         range means of transport with full tank.
+
     G : NetworkX graph
         Must include all origins, destinations and any nodes where a refueling station may be placed.
+
     OD: dict
         This dict contains the travel data within network G, travel data from A-B and from B-A should be summed up and
         entered as either one of them.
         example input:
         {(node_1, node_2, route_v1) : flow12_r1, (node_1, node_2, route_v2) : flow12_r2, (node_1, node_3, route_v1) :
         flow13_v1}
+
     paths: dict
         Dictionary that contains all paths between the OD pairs that are in OD.
         example input:
         {(node_1, node_2, route_v1) : [list of nodes consecutive], (node_1, node_2, route_v2) :
          [list of nodes consecutive], (node_1, node_3, route_v1) : [list of nodes consecutive]}
+
     path_lengths: dict
         Dictionary that contains all path lengths (in meters) between the OD pairs that are in OD, with the same keys as
         OD and paths dicts.
+
     df_h: pd.DataFrame
         This is a Dataframe as generated in revised_network_cleaning.ipynb, that contains the data of harbours and the
         corresponding harbour nodes in G.
+
     additional_nodes: list
         This is a list that should contain all additional harbour nodes to be considered, next to the origin and
         destination harbours.
-    exclude: list
-        This is a list that should contain all nodes that should not be considered to place charging stations.
         """
 
     # load in harbour exits that are created in notebook harbour exits
@@ -81,7 +85,9 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
         # store relevant variables
         dict_eq_fq['q'].append((origin, destination, version))
         dict_eq_fq['f_q'].append(flow)
-        dict_eq_fq['e_q'].append((1 / (max(1, int(r / (path_lengths[(origin, destination, version)] * 2))))))
+
+        # adjusted compared to original: no roundtrip assumed,single  path length used and no integer value used
+        dict_eq_fq['e_q'].append(1 / (max(1, int(r / (path_lengths[(origin, destination, version)])))))
 
     # make master dict with key q, with list of all feasible station combinations on q with r
     route_refuel_comb = {}
@@ -193,7 +199,8 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
                     if (node == harbour_dict[route_key][0]) or (node == harbour_dict[route_key][-1]):
                         dict_g[node].append(1)
                     else:
-                        dict_g[node].append(2)
+                        # changed compared to original CFRLM: no round trip assumed thus 1 instead of 2
+                        dict_g[node].append(1)
                 else:
                     dict_g[node].append(0)
 

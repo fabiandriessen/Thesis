@@ -14,46 +14,40 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, station_cap, max_per_loc, o=24,
-                                  random_data=False, additional_nodes=False, include_intersections=False, vis=False):
+def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, o=24,
+                                  random_data=False, load=1, seed=None):
     """
     Parameters
     ----------
     r : int
         Range of a vessel.
 
-    v : int
-        travel speed resulting in the range
-
-    p_b : int
-        power of basis vessel [M1]
-
-    stations_to_place:int
+    p:int
         Total number of charging modules to place.
 
-    station_cap: int
-        Maximum capacity of a charging station per time unit.
+    c: int
+        Maximum capacity of a charging station per time unit in supplied kWh.
 
-    max_per_loc: int
+    x_m: int
         Maximum number of charging modules that may be placed at a location.
 
-    load:float
-        Percentage of vessels on the network compared to the 2021 total to create if random data is used
-
-    seed:int
-        Random seed to use for random data generation
-
-    random_data: Boolean
-        If True, run the model with random sample based instead of the empirical data
-
-    additional_nodes: Boolean
-        True if additional nodes should be inserted into the original network.
-
-    include_intersections: Boolean
-    If this variable is True, intersections are also considered to place stations if additional_nodes is True.
+    additional_nodes: int
+        Applied heuristic, 0 is none, 1 is 1, 2 = 2 , 3 is both.
 
     vis: Boolean
-    If this variable is True, a visualisation is presented
+        If this variable is True, a visualisation is presented.
+
+    o: float[0,24]
+        Operational hours during a day.
+
+    random_data: Boolean
+        If True, run the model with random sample based instead of the empirical data.
+
+    load:float
+        Percentage of vessels on the network compared to the 2021 total to create if random data is used.
+
+    seed:int
+        Random seed to use for random data generation.
     """
 
     G = pickle.load(open('data/network_cleaned_final.p', 'rb'))
@@ -65,21 +59,20 @@ def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, stat
     # generate random data
     if random_data:
         df_random = random_vessel_generator(df_ivs, seed, load)
-        flows = flow_computation(df_random)
+        flows = flow_computation(df_random, r, path_lengths)
     else:
-        df_prob = df_ivs
-        df_prob = df_prob.loc[df_prob.trip_count != 0]
-        df_prob.reset_index(inplace=True, drop=True)
-        df_prob = df_prob.fillna(0)
-        df_random = df_prob
-        flows = flow_computation(df_random)
+        df_random = df_ivs
+        flows = flow_computation(df_random, r, path_lengths)
 
     inserted = []
     # include intersections if True
-    if additional_nodes:
+    if additional_nodes == 3:
         G, paths, inserted = generate_network(G, paths)
-        if include_intersections:
-            inserted += determine_additional_nodes(G, df_h)
+        inserted += determine_additional_nodes(G, df_h)
+    elif additional_nodes == 2:
+        G, paths, inserted = generate_network(G, paths)
+    elif additional_nodes == 1:
+        inserted += determine_additional_nodes(G, df_h)
 
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,
@@ -88,7 +81,7 @@ def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, stat
 
     # execute second stage
     optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported = second_stage_frlm(
-        r, v, p_b, stations_to_place, station_cap, max_per_loc, o, df_g, df_b, df_eq_fq)
+        r, p, x_m, path_lengths, c, o, df_g, df_b, df_eq_fq)
 
     # collect data
     total_flow = sum(flows.values())
@@ -109,7 +102,7 @@ def flow_refueling_location_model(load, seed, r, v, p_b, stations_to_place, stat
 
     # store range and capacity per day of a station?
     df_abm['range'] = r
-    df_abm['capacity'] = station_cap
+    df_abm['capacity'] = c * 24
 
     # configure df random for abm
     df_random['key'] = df_random.apply(lambda x: create_key(x.origin, x.destination, x.route_v), axis=1)

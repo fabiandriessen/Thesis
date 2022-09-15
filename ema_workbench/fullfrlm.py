@@ -3,6 +3,8 @@ from random_vessel_generator import random_vessel_generator
 from first_stage_frlm import first_stage_frlm
 from second_stage_frlm import second_stage_frlm
 from generate_network import generate_network
+from visualize_placement import visualize_placement
+from create_input_data_abm import create_input_data_abm
 from determine_additional_nodes import determine_additional_nodes
 import pickle
 
@@ -12,44 +14,40 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max_per_loc, o=24, load=1, seed=None,
-                                  random_data=False, additional_nodes=0):
+def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, o=24,
+                                  random_data=False, load=1, seed=None):
     """
+    Parameters
+    ----------
     r : int
         Range of a vessel.
 
-    v : int
-        travel speed resulting in the range
-
-    p_b : int
-        power of basis vessel [M1]
-
-    stations_to_place:int
+    p:int
         Total number of charging modules to place.
 
-    station_cap: int
-        Maximum capacity of a charging station per time unit.
+    c: int
+        Maximum capacity of a charging station per time unit in supplied kWh.
 
-    max_per_loc: int
+    x_m: int
         Maximum number of charging modules that may be placed at a location.
 
-    load:float
-        Percentage of vessels on the network compared to the 2021 total to create if random data is used
-
-    seed:int
-        Random seed to use for random data generation
-
-    random_data: Boolean
-        If True, run the model with random sample based instead of the empirical data
-
     additional_nodes: int
-        applied heuristic, 0 is none, 1 is 1, 2 = 2 , 3 is both
-
-    include_intersections: Boolean
-    If this variable is True, intersections are also considered to place stations if additional_nodes is True.
+        Applied heuristic, 0 is none, 1 is 1, 2 = 2 , 3 is both.
 
     vis: Boolean
-    If this variable is True, a visualisation is presented
+        If this variable is True, a visualisation is presented.
+
+    o: float[0,24]
+        Operational hours during a day.
+
+    random_data: Boolean
+        If True, run the model with random sample based instead of the empirical data.
+
+    load:float
+        Percentage of vessels on the network compared to the 2021 total to create if random data is used.
+
+    seed:int
+        Random seed to use for random data generation.
     """
 
     G = pickle.load(open('data/network_cleaned_final.p', 'rb'))
@@ -61,14 +59,10 @@ def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max
     # generate random data
     if random_data:
         df_random = random_vessel_generator(df_ivs, seed, load)
-        flows = flow_computation(df_random)
+        flows = flow_computation(df_random, r, path_lengths)
     else:
-        df_prob = df_ivs
-        df_prob = df_prob.loc[df_prob.trip_count != 0]
-        df_prob.reset_index(inplace=True, drop=True)
-        df_prob = df_prob.fillna(0)
-        df_random = df_prob
-        flows = flow_computation(df_random)
+        df_random = df_ivs
+        flows = flow_computation(df_random, r, path_lengths)
 
     inserted = []
     # include intersections if True
@@ -87,7 +81,7 @@ def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max
 
     # execute second stage
     optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported = second_stage_frlm(
-        r, v, p_b, stations_to_place, station_cap, max_per_loc, o, df_g, df_b, df_eq_fq)
+        r, p, x_m, path_lengths, c, o, df_g, df_b, df_eq_fq)
 
     # collect data
     total_flow = sum(flows.values())
@@ -101,39 +95,5 @@ def flow_refueling_location_model(r, v, p_b, stations_to_place, station_cap, max
 
     served_fraction = (supported_flow / max_supported)
 
-    # extra_nodes_used = [i for i, j in optimal_facilities.items() if j > 0]
-    # extra_nodes_used = list(set(extra_nodes_used) - set(df_h.harbour_node))
-    # extra_nodes_used = len(extra_nodes_used)
-    # extra_nodes_used = float(extra_nodes_used)
-
-    # h_nodes = inserted + list(df_h.harbour_node)
-    # extra_nodes_sol = []
-    # add_feasible = feasible_combinations.copy()
-    # for i, j in feasible_combinations.items():
-    #     for combi in j:
-    #         combies = []
-    #         if any(combi) in h_nodes:
-    #             d
-    # df_abm = create_input_data_abm(G, paths, non_zero_flows, optimal_facilities)
-
-    # if vis:
-    #     visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
-    #
-    # # store range and capacity per day of a station?
-    # df_abm['range'] = r
-    # df_abm['capacity'] = station_cap
-    #
-    # # configure df random for abm
-    # df_random['key'] = df_random.apply(lambda x: create_key(x.origin, x.destination, x.route_v), axis=1)
-    # df_random = df_random.loc[df_random.key.isin(non_zero_flows.keys())]
-    # df_random = df_random.loc[df_random.trip_count != 0]
-    #
-    # pickle.dump(feasible_combinations, open('ABM/own_work/data/feasible_comb.p', 'wb'))
-    # pickle.dump(G, open("ABM/own_work/data/network.p", "wb"))
-    # pickle.dump(paths, open("ABM/own_work/data/paths.p", "wb"))
-    # pickle.dump(df_abm, open("ABM/own_work/data/df_abm.p", "wb"))
-    # pickle.dump(df_random, open("ABM/own_work/data/df_random.p", "wb"))
-    # pickle.dump(non_zero_flows, open("ABM/own_work/data/non_zero_flows.p", "wb"))
-    # df_abm.to_csv('ABM/own_work/data/df_abm.csv')
-
-    return supported_flow, total_flow, fraction_captured_total, serviceable_fraction, served_fraction, routes_supported
+    return total_flow, fraction_captured_total, serviceable_fraction, served_fraction, optimal_facilities, \
+        non_zero_flows, routes_supported, max_supported
