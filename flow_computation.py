@@ -24,7 +24,7 @@ def flow_computation(df, r, path_lengths, individual_speed=True):
                                                     axis=1)
     else:
         ship_data['battery_size'] = ship_data.apply(lambda x: (r/(ship_data.speed_loaded.mean() * 3.6 * 1000))
-                                                    * x.P_average)
+                                                    * x.P_average, axis=1)
 
     # determine factors based on battery size
     ship_data['Factor'] = ship_data.battery_size.apply(lambda n: (n / ship_data.battery_size[0]))
