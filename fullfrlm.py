@@ -118,4 +118,4 @@ def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, 
     df_abm.to_csv('ABM/own_work/data/df_abm.csv')
 
     return total_flow, fraction_captured_total, serviceable_fraction, served_fraction, optimal_facilities, \
-        non_zero_flows, routes_supported, paths, G, df_abm, df_random, max_supported
+        non_zero_flows, routes_supported, paths, G, df_abm, df_random, supported_flow

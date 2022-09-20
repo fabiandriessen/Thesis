@@ -15,16 +15,16 @@ def second_stage_frlm(r, p, x_m, path_lengths, c, o, df_g, df_b, df_eq_fq):
             charging stations modules to locate on any node of G.
 
         x_m: int
-        Maximum number of charging modules that can be placed at a certain location.
+            Maximum number of charging modules that can be placed at a certain location.
 
         c : float
-            max charging capacity of a charging station
+            Max charging capacity of a charging station
 
         path_lengths: dict
             Dictionary that contains all path lengths (in meters) between the OD pairs that are in OD, with the same keys as
             OD and paths dicts.
 
-        o: float[0,24]
+        o: float
             operational hours of a charging station during same time period as c
 
         ## the following three inputs are data frames that can be generated using the first_stage_FRLM function
@@ -47,14 +47,14 @@ def second_stage_frlm(r, p, x_m, path_lengths, c, o, df_g, df_b, df_eq_fq):
     # daily capacity in kWh
     daily_cap = o*c
 
-    a = df_g.reset_index()
-    flow_a = []
-    for i in a.index:
-        flow_a.append((a.q[i], a.h[i]))
+    # a = df_g.reset_index()
+    # flow_a = []
+    # for i in a.index:
+    #     flow_a.append((a.q[i], a.h[i]))
 
     # first decision variable: allocated flow
     flow_allocation = pulp.LpVariable.dicts("Flow_captured",
-                                            ((q, h) for q, h in flow_a),
+                                            ((q, h) for q, h in df_g.index),
                                             lowBound=0,
                                             upBound=1,
                                             cat='Continuous')
@@ -69,8 +69,8 @@ def second_stage_frlm(r, p, x_m, path_lengths, c, o, df_g, df_b, df_eq_fq):
     model = LpProblem('CFRLM', LpMaximize)
 
     # objective function
-    model += pulp.lpSum([flow_allocation[q, h] * df_b[h][q] * df_eq_fq['f_q'][q] * (path_lengths[q]/r)
-                         for q, h in flow_a])
+    model += pulp.lpSum([flow_allocation[q, h] * df_b[h][q] * df_eq_fq['f_q'][q]
+                         for q, h in df_g.index])
 
     # ###############################################constraints##################################################
     # first constraint
@@ -94,6 +94,7 @@ def second_stage_frlm(r, p, x_m, path_lengths, c, o, df_g, df_b, df_eq_fq):
 
     status = LpStatus[model.status]
     print(status)
+    # print(value(model.objective))
     # Values of decision variables at optimum
 
     # for var in model.variables():
