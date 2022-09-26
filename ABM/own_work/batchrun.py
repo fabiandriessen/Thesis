@@ -8,7 +8,7 @@ pick_from = np.linspace(0, 1000000, 1000001)
 seeds = np.random.choice(a=pick_from, size=100, replace=False)
 seeds = list(seeds)
 seeds = [round(i) for i in seeds]
-print(seeds)
+# print(seeds)
 parameters = {}
 if __name__ == '__main__':
     freeze_support()

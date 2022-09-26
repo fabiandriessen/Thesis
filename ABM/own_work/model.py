@@ -301,33 +301,33 @@ class VesselElectrification(Model):
                 # calculate part of route that is captured
                 percentage_captured = sum(self.optimal_flows[row['key']]['flows'])
                 # now continue with generating only if this vessel should indeed be generated
-                # if percentage_captured >= np.random.random():
-                # determine vessel type
-                prob = list(df_hour.iloc[i, 4:-2].values / df_hour.iloc[i, 4:-2].sum())
-                to_pick = type_list
-                ship_type = np.random.choice(a=to_pick, size=1, replace=False, p=prob)
-                # print(ship_type, "Vessel departed at", row['origin'], self.hour, ':', self.schedule.time,
-                # "heading to", row['destination'], "via route", row['key'])
-                unique_id = Harbour.vessel_counter  # give unique ID based on Harbour attribute
-                path = self.get_route(row['key'])  # determine path based on route, 50% to depart at port
-                generated_at = path[0]  # store origin
-                generated_by = self.schedule._agents[generated_at]  # store which agent generated this vessel
-                power = self.type_engine_power[ship_type[0]]  # look up engine power based on type
-                battery_size = math.ceil((self.range / self.vessel_speed) * power)  # equal r assumed
+                if percentage_captured >= np.random.random():
+                    # determine vessel type
+                    prob = list(df_hour.iloc[i, 4:-2].values / df_hour.iloc[i, 4:-2].sum())
+                    to_pick = type_list
+                    ship_type = np.random.choice(a=to_pick, size=1, replace=False, p=prob)
+                    # print(ship_type, "Vessel departed at", row['origin'], self.hour, ':', self.schedule.time,
+                    # "heading to", row['destination'], "via route", row['key'])
+                    unique_id = Harbour.vessel_counter  # give unique ID based on Harbour attribute
+                    path = self.get_route(row['key'])  # determine path based on route, 50% to depart at port
+                    generated_at = path[0]  # store origin
+                    generated_by = self.schedule._agents[generated_at]  # store which agent generated this vessel
+                    power = self.type_engine_power[ship_type[0]]  # look up engine power based on type
+                    battery_size = math.ceil((self.range / self.vessel_speed) * power)  # equal r assumed
 
-                # determine combination that this vessel will use
-                if len(self.optimal_flows[row['key']]['combinations']) == 1:
-                    combi = self.optimal_flows[row['key']]['combinations'][0]  # take first if only one option
-                else:
-                    pkey = self.optimal_flows[row['key']]['flows']  # else, randomly draw as previously
-                    pkey = [i / sum(pkey) for i in pkey]
-                    pick = np.random.choice(a=np.arange(len(self.optimal_flows[row['key']]['combinations'])),
-                                            size=1, replace=False, p=pkey)
-                    combi = self.optimal_flows[row['key']]['combinations'][pick.item()]
+                    # determine combination that this vessel will use
+                    if len(self.optimal_flows[row['key']]['combinations']) == 1:
+                        combi = self.optimal_flows[row['key']]['combinations'][0]  # take first if only one option
+                    else:
+                        pkey = self.optimal_flows[row['key']]['flows']  # else, randomly draw as previously
+                        pkey = [i / sum(pkey) for i in pkey]
+                        pick = np.random.choice(a=np.arange(len(self.optimal_flows[row['key']]['combinations'])),
+                                                size=1, replace=False, p=pkey)
+                        combi = self.optimal_flows[row['key']]['combinations'][pick.item()]
 
-                agent = Vessel(unique_id, self, generated_by, path, ship_type[0], battery_size, power, combi,
-                               row['key'])  # instantiate agent and add to vessel
-                self.schedule.add(agent)
-                Harbour.vessel_counter += 1  # make sure next vessel also gets unique id, goes well till 10000
+                    agent = Vessel(unique_id, self, generated_by, path, ship_type[0], battery_size, power, combi,
+                                   row['key'])  # instantiate agent and add to vessel
+                    self.schedule.add(agent)
+                    Harbour.vessel_counter += 1  # make sure next vessel also gets unique id, goes well till 10000
 
 # EOF -----------------------------------------------------------
