@@ -58,6 +58,7 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
         corresponding harbour nodes in G.
 
     additional_nodes: list
+    additional_nodes: list
         This is a list that should contain all additional harbour nodes to be considered, next to the origin and
         destination harbours.
         """

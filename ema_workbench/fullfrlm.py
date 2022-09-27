@@ -81,7 +81,7 @@ def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, 
 
     # execute second stage
     optimal_facilities, optimal_flows, non_zero_flows, supported_flow, routes_supported = second_stage_frlm(
-        r, p, x_m, path_lengths, c, o, df_g, df_b, df_eq_fq)
+        p, x_m, c, o, df_g, df_b, df_eq_fq)
 
     # collect data
     total_flow = sum(flows.values())
@@ -95,5 +95,27 @@ def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, 
 
     served_fraction = (supported_flow / max_supported)
 
+    df_abm = create_input_data_abm(G, paths, non_zero_flows, optimal_facilities)
+
+    if vis:
+        visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
+
+    # store range and capacity per day of a station?
+    df_abm['range'] = r
+    df_abm['capacity'] = c * 24
+
+    # configure df random for abm
+    df_random['key'] = df_random.apply(lambda x: create_key(x.origin, x.destination, x.route_v), axis=1)
+    df_random = df_random.loc[df_random.key.isin(non_zero_flows.keys())]
+    df_random = df_random.loc[df_random.trip_count != 0]
+
+    pickle.dump(feasible_combinations, open('ABM/own_work/data/feasible_comb.p', 'wb'))
+    pickle.dump(G, open("ABM/own_work/data/network.p", "wb"))
+    pickle.dump(paths, open("ABM/own_work/data/paths.p", "wb"))
+    pickle.dump(df_abm, open("ABM/own_work/data/df_abm.p", "wb"))
+    pickle.dump(df_random, open("ABM/own_work/data/df_random.p", "wb"))
+    pickle.dump(non_zero_flows, open("ABM/own_work/data/non_zero_flows.p", "wb"))
+    df_abm.to_csv('ABM/own_work/data/df_abm.csv')
+
     return total_flow, fraction_captured_total, serviceable_fraction, served_fraction, optimal_facilities, \
-        non_zero_flows, routes_supported, max_supported
+        non_zero_flows, routes_supported, paths, G, df_abm, df_random, supported_flow
