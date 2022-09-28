@@ -14,7 +14,7 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, o=24,
+def flow_refueling_location_model(r, p, c, x_m, additional_nodes=0, vis=False, o=24,
                                   random_data=False, load=1, seed=None):
     """
     Parameters
@@ -66,7 +66,28 @@ def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, 
 
     inserted = []
     # include intersections if True
-    if additional_nodes == 3:
+    if additional_nodes == 4:
+        inserted += ['8865462',
+                     '8863114',
+                     '8860563',
+                     '8865887',
+                     '8861447',
+                     '8864526',
+                     '8860631',
+                     '8862048',
+                     '8863762',
+                     '8861611',
+                     '8861681',
+                     '8868065',
+                     '8863336',
+                     '8867910',
+                     '8860623',
+                     '8864952',
+                     '8865186',
+                     '8860918',
+                     '8864915',
+                     '8862907']
+    elif additional_nodes == 3:
         G, paths, inserted = generate_network(G, paths)
         inserted += determine_additional_nodes(G, df_h)
     elif additional_nodes == 2:
@@ -101,4 +122,4 @@ def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, 
         visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
 
     return total_flow, fraction_captured_total, serviceable_fraction, served_fraction, optimal_facilities, \
-        non_zero_flows, add_nodes_used
+           non_zero_flows, add_nodes_used
