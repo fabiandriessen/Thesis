@@ -2,10 +2,10 @@ from flow_computation import flow_computation
 from random_vessel_generator import random_vessel_generator
 from first_stage_frlm import first_stage_frlm
 from second_stage_frlm import second_stage_frlm
-from generate_network import generate_network
-from visualize_placement import visualize_placement
+from generate_network_nodes import generate_network
+# from visualize_placement import visualize_placement
 from create_input_data_abm import create_input_data_abm
-from determine_additional_nodes import determine_additional_nodes
+from additional_intersections_new import additional_intersections
 import pickle
 
 
@@ -14,7 +14,7 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(r, p, c, x_m, additional_nodes=0, vis=False, o=24,
+def flow_refueling_location_model(r, p, c, x_m, additional_nodes=0, n=0, vis=False, o=24,
                                   random_data=False, load=1, seed=None):
     """
     Parameters
@@ -33,6 +33,9 @@ def flow_refueling_location_model(r, p, c, x_m, additional_nodes=0, vis=False, o
 
     additional_nodes: int
         Applied heuristic, 0 is none, 1 is 1, 2 = 2 , 3 is both.
+
+    n: int
+        Number of additional intersections to include
 
     vis: Boolean
         If this variable is True, a visualisation is presented.
@@ -65,35 +68,14 @@ def flow_refueling_location_model(r, p, c, x_m, additional_nodes=0, vis=False, o
         flows = flow_computation(df_random, r, path_lengths)
 
     inserted = []
-    # include intersections if True
-    if additional_nodes == 4:
-        inserted += ['8865462',
-                     '8863114',
-                     '8860563',
-                     '8865887',
-                     '8861447',
-                     '8864526',
-                     '8860631',
-                     '8862048',
-                     '8863762',
-                     '8861611',
-                     '8861681',
-                     '8868065',
-                     '8863336',
-                     '8867910',
-                     '8860623',
-                     '8864952',
-                     '8865186',
-                     '8860918',
-                     '8864915',
-                     '8862907']
-    elif additional_nodes == 3:
-        G, paths, inserted = generate_network(G, paths)
-        inserted += determine_additional_nodes(G, df_h)
+
+    if additional_nodes == 3:
+        G, paths, inserted = generate_network(G, paths, n)
+        inserted += additional_intersections(G, n)
     elif additional_nodes == 2:
-        G, paths, inserted = generate_network(G, paths)
+        G, paths, inserted = generate_network(G, paths, n)
     elif additional_nodes == 1:
-        inserted += determine_additional_nodes(G, df_h)
+        inserted += additional_intersections(G, n)
 
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,
@@ -116,10 +98,12 @@ def flow_refueling_location_model(r, p, c, x_m, additional_nodes=0, vis=False, o
 
     served_fraction = (supported_flow / max_supported)
 
-    add_nodes_used = float(len([i for i, j in optimal_facilities.items() if (len(i) < 4 and j != 0)]))
+    used_facilities = [i for i, j in optimal_facilities.items() if j > 0]
+    add_nodes_used = float(len(list(set(used_facilities) - set(df_h.harbour_node.to_list()))))
 
     if vis:
         visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
 
     return total_flow, fraction_captured_total, serviceable_fraction, served_fraction, optimal_facilities, \
            non_zero_flows, add_nodes_used
+

@@ -1,9 +1,10 @@
 import networkx as nx
 import pandas as pd
 import numpy as np
+import math
 
 
-def generate_network(G, paths, nodes_to_add=50):
+def generate_network(G, paths, n=5):
 
     """This is a function to generate a network with n additional nodes to minimize the maximum link length. A node is
     placed in the middle of the longest node, if a node already has been split, the original node will be split in
@@ -16,8 +17,8 @@ def generate_network(G, paths, nodes_to_add=50):
     paths: dict
         This dictionary should contain all the paths between the various origins and destinations as generated in
         notebook 3.
-    nodes_to_add: int
-        The number of additional nodes that should be added to the network.
+    n: int
+        number of nodes to add
      """
 
     # retrieve data from G
@@ -31,17 +32,24 @@ def generate_network(G, paths, nodes_to_add=50):
     # first inserted node gets ID 100 and from there upwards
     id_count = 100
     inserted = []
+    # %%
 
-    while len(inserted) < nodes_to_add:
+    for i in range(1000):
         # update dataframes
         df_links = nx.to_pandas_edgelist(G)
         df_nodes = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
 
-        # find the longest link source and origin
-        # find the longest link source and origin, except for the two links that cross the sea
-        df_links = df_links.loc[((df_links.source != '8860852') & (df_links.target != '8862614')) | (
-                    (df_links.source != '8860852') & (df_links.target != '8861716'))]
+        exluded_nodes = ['8862614', '8860852', '8861819', '8867031', '8867600', '8860933']
+        df_links = df_links.loc[(~df_links.source.isin(exluded_nodes)) | (~df_links.target.isin(exluded_nodes))]
         df_links.reset_index(inplace=True, drop=True)
+
+        if len(inserted) >= n:
+            print("There were", len(inserted), "nodes added, the longest remaining link is now:",
+                  df_links.length_m.max())
+            break
+
+        # find the longest link source and origin, except for the two links that cross the sea
+
         to_split = df_links.loc[df_links.length_m == max(df_links.length_m)]
         to_split.reset_index(inplace=True, drop=True)
         # identify source/targets points
@@ -92,10 +100,16 @@ def generate_network(G, paths, nodes_to_add=50):
             G.add_edge(nodes_sequence[j], nodes_sequence[j + 1], length_m=(original_length / split_in),
                        split=int(to_split.split[0] + 1))
 
+        # redetermine df
         df_links = nx.to_pandas_edgelist(G)
-        df_nodes = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
-    # else:
-    #     print("There were", len(inserted), "nodes added, the longest remaining link is now:", df_links.length_m.max())
+        df_links = df_links.loc[((df_links.source != '8860852') & (df_links.target != '8862614')) | (
+                (df_links.source != '8860852') & (df_links.target != '8861716'))]
+
+        # # break out of loop if longest link is small enough
+        # if math.ceil(max(df_links.length_m)) <= (r * 0.5):
+        #     print("There were", len(inserted), "nodes added, the longest remaining link is now:",
+        #           df_links.length_m.max())
+        #     break
 
     # fix insertion of additional nodes in route!
     for route, path in paths.items():
