@@ -13,5 +13,5 @@ parameters = {}
 if __name__ == '__main__':
     freeze_support()
     result = batch_run(VesselElectrification, iterations=1, parameters={'seed': seeds},
-                       data_collection_period=(60 * 24 * 8), max_steps=(60 * 24 * 8), number_processes=None)
-    pickle.dump(result, open('data/batch_run_result.p', 'wb'))
+                       data_collection_period=(60 * 24 * 8), max_steps=(60 * 24 * 8), number_processes=17)
+    pickle.dump(result, open('data/batch_run_result_2_5000.p', 'wb'))

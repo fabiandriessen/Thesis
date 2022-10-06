@@ -5,7 +5,7 @@ from second_stage_frlm import second_stage_frlm
 from generate_network import generate_network
 from visualize_placement import visualize_placement
 from create_input_data_abm import create_input_data_abm
-from determine_additional_nodes import determine_additional_nodes
+from additional_intersections_new import additional_intersections
 import pickle
 
 
@@ -14,7 +14,7 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, o=24,
+def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, n=25, vis=False, o=24,
                                   random_data=False, load=1, seed=None):
     """
     Parameters
@@ -33,6 +33,9 @@ def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, 
 
     additional_nodes: int
         Applied heuristic, 0 is none, 1 is 1, 2 = 2 , 3 is both.
+
+    n:int
+        Number of nodes to add with each of the algorithms
 
     vis: Boolean
         If this variable is True, a visualisation is presented.
@@ -67,12 +70,12 @@ def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, vis=False, 
     inserted = []
     # include intersections if True
     if additional_nodes == 3:
-        G, paths, inserted = generate_network(G, paths)
-        inserted += determine_additional_nodes(G, df_h)
+        G, paths, inserted = generate_network(G, paths, n)
+        inserted += additional_intersections(G, n)
     elif additional_nodes == 2:
-        G, paths, inserted = generate_network(G, paths)
+        G, paths, inserted = generate_network(G, paths, n)
     elif additional_nodes == 1:
-        inserted += determine_additional_nodes(G, df_h)
+        inserted += additional_intersections(G, n)
 
     # execute first stage, with or without additional nodes
     df_b, df_g, df_eq_fq, feasible_combinations = first_stage_frlm(r, G, OD=flows, paths=paths,

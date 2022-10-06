@@ -64,7 +64,7 @@ def additional_intersections(G, no_selected_intersections):
             lambda m: (find_nearest_harbour(G, m.X, m.Y, selected)), axis=1)
         faraway = intersection_df.sort_values('dist_nearest_harbour', ascending=False).head(1).n.to_list()
         selected += faraway
-
+    print(selected, "intersections added")
     return selected
 
 
