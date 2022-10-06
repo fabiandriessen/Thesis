@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 
 pick_from = np.linspace(0, 1000000, 1000001)
-seeds = np.random.choice(a=pick_from, size=100, replace=False)
+seeds = np.random.choice(a=pick_from, size=17, replace=False)
 seeds = list(seeds)
 seeds = [round(i) for i in seeds]
 # print(seeds)

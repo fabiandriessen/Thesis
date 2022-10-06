@@ -105,7 +105,7 @@ def flow_refueling_location_model(r, p, c, x_m,  additional_nodes=0, n=25, vis=F
 
     # store range and capacity per day of a station?
     df_abm['range'] = r
-    df_abm['capacity'] = c * 24
+    df_abm['capacity'] = c
 
     # configure df random for abm
     df_random['key'] = df_random.apply(lambda x: create_key(x.origin, x.destination, x.route_v), axis=1)
