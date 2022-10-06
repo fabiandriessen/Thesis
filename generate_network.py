@@ -4,7 +4,7 @@ import numpy as np
 import math
 
 
-def generate_network(G, paths, r=60000):
+def generate_network(G, paths, n=5):
 
     """This is a function to generate a network with n additional nodes to minimize the maximum link length. A node is
     placed in the middle of the longest node, if a node already has been split, the original node will be split in
@@ -17,8 +17,8 @@ def generate_network(G, paths, r=60000):
     paths: dict
         This dictionary should contain all the paths between the various origins and destinations as generated in
         notebook 3.
-    r: int
-        Range of a vessel.
+    n: int
+        number of nodes to add
      """
 
     # retrieve data from G
@@ -43,7 +43,7 @@ def generate_network(G, paths, r=60000):
         df_links = df_links.loc[(~df_links.source.isin(exluded_nodes)) | (~df_links.target.isin(exluded_nodes))]
         df_links.reset_index(inplace=True, drop=True)
 
-        if math.ceil(max(df_links.length_m)) <= (r * 0.5):
+        if len(inserted) >= n:
             print("There were", len(inserted), "nodes added, the longest remaining link is now:",
                   df_links.length_m.max())
             break
@@ -105,11 +105,11 @@ def generate_network(G, paths, r=60000):
         df_links = df_links.loc[((df_links.source != '8860852') & (df_links.target != '8862614')) | (
                 (df_links.source != '8860852') & (df_links.target != '8861716'))]
 
-        # break out of loop if longest link is small enough
-        if math.ceil(max(df_links.length_m)) <= (r * 0.5):
-            print("There were", len(inserted), "nodes added, the longest remaining link is now:",
-                  df_links.length_m.max())
-            break
+        # # break out of loop if longest link is small enough
+        # if math.ceil(max(df_links.length_m)) <= (r * 0.5):
+        #     print("There were", len(inserted), "nodes added, the longest remaining link is now:",
+        #           df_links.length_m.max())
+        #     break
 
     # fix insertion of additional nodes in route!
     for route, path in paths.items():

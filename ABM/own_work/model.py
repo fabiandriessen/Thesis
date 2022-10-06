@@ -173,11 +173,10 @@ class VesselElectrification(Model):
         self.hour = 0
         self.charging_station_capacity = self.data.capacity.iloc[0]  # max charging power in KWh
         self.range = self.data.range.iloc[0]  # range in meters
-        self.vessel_speed = 15000  # (meters/hour)
-        self.charging_speed = 2500  # kWh
 
         self.path_lengths = pickle.load(open('data/path_lengths_ship_specific_routes.p', 'rb'))
         self.type_engine_power = pickle.load(open('data/flow_comp_factors_unscaled.p', 'rb'))
+        self.type_loaded_speed = pickle.load(open('data/types_loaded_speed.p', 'rb'))
         self.optimal_flows = pickle.load(open('data/non_zero_flows.p', 'rb'))
 
         self.agent_data = {'id': [],
@@ -189,7 +188,6 @@ class VesselElectrification(Model):
                            'time_in_line': [],
                            'time_charging': [],
                            'battery_size': []}  # new dict to store data of removed agents, before removing
-
 
         self.datacollector = DataCollector(
             model_reporters={"data_completed_trips": "agent_data"},
@@ -243,14 +241,14 @@ class VesselElectrification(Model):
                 agent = Link(row['name'], self, row['length_m'], row['name'])
                 self.intermediate_nodes.append(agent.unique_id)
             elif model_type == 'harbour_with_charging':
-                agent = HarbourChargingStation(row['name'], self, row['charging_stations'], self.charging_speed,
-                                               row['length_m'], row['name'])
+                agent = HarbourChargingStation(row['name'], self, row['charging_stations'],
+                                               self.charging_station_capacity, row['length_m'], row['name'])
                 self.harbours_with_charging.append(agent.unique_id)
             elif model_type == 'harbour':
                 agent = Harbour(row['name'], self, row['length_m'], row['name'])
                 self.harbours.append(agent.unique_id)
             elif model_type == 'charging_station':
-                agent = ChargingStation(row['name'], self, row['charging_stations'], self.charging_speed,
+                agent = ChargingStation(row['name'], self, row['charging_stations'], self.charging_station_capacity,
                                         row['length_m'], row['name'])
                 self.charging_stations.append(agent.unique_id)
             elif (model_type == 'inserted_node') or (model_type == 'intermediate_node'):
@@ -313,7 +311,8 @@ class VesselElectrification(Model):
                     generated_at = path[0]  # store origin
                     generated_by = self.schedule._agents[generated_at]  # store which agent generated this vessel
                     power = self.type_engine_power[ship_type[0]]  # look up engine power based on type
-                    battery_size = math.ceil((self.range / self.vessel_speed) * power)  # equal r assumed
+                    speed = (3.6 * 1000 * self.type_loaded_speed[ship_type[0]]) / 60  #from m/s to km/minute
+                    battery_size = math.ceil((self.range / speed) * power)  # equal r assumed
 
                     # determine combination that this vessel will use
                     if len(self.optimal_flows[row['key']]['combinations']) == 1:
@@ -326,7 +325,7 @@ class VesselElectrification(Model):
                         combi = self.optimal_flows[row['key']]['combinations'][pick.item()]
 
                     agent = Vessel(unique_id, self, generated_by, path, ship_type[0], battery_size, power, combi,
-                                   row['key'])  # instantiate agent and add to vessel
+                                   row['key'], speed)  # instantiate agent and add to vessel
                     self.schedule.add(agent)
                     Harbour.vessel_counter += 1  # make sure next vessel also gets unique id, goes well till 10000
 

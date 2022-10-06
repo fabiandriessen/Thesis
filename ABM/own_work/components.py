@@ -37,16 +37,17 @@ class Infra(Agent):
         return type(self).__name__ + str(self.unique_id)
 
     def remove(self, vessel):
-        vessel.removed_at_step = self.model.schedule.time
-        vessel.model.agent_data['id'].append(vessel.unique_id)
-        vessel.model.agent_data['route'].append(vessel.route_key)
-        vessel.model.agent_data['time_departed'].append(vessel.generated_at_step)
-        vessel.model.agent_data['travel_time'].append(vessel.time_driving-1)  # correct for last step
-        vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
-        vessel.model.agent_data['time_charging'].append(vessel.time_waited)
-        vessel.model.agent_data['battery_size'].append(vessel.battery_size)
-        vessel.model.agent_data['combi'].append(vessel.combi)
-        vessel.model.agent_data['generation_hour'].append(vessel.hour)
+        if self.model.schedule.time >= 60*24:
+            vessel.removed_at_step = self.model.schedule.time
+            vessel.model.agent_data['id'].append(vessel.unique_id)
+            vessel.model.agent_data['route'].append(vessel.route_key)
+            vessel.model.agent_data['time_departed'].append(vessel.generated_at_step)
+            vessel.model.agent_data['travel_time'].append(vessel.time_driving-1)  # correct for last step
+            vessel.model.agent_data['time_in_line'].append(vessel.time_inline)
+            vessel.model.agent_data['time_charging'].append(vessel.time_waited)
+            vessel.model.agent_data['battery_size'].append(vessel.battery_size)
+            vessel.model.agent_data['combi'].append(vessel.combi)
+            vessel.model.agent_data['generation_hour'].append(vessel.hour)
 
         self.model.schedule.remove(vessel)
         self.vessel_removed_toggle = not self.vessel_removed_toggle
@@ -132,6 +133,7 @@ class ChargingStation(Infra):
                     to_charge.inline = False
 
     def update_usage(self):
+
         self.steps_measuring += 1
         if self.currently_charging:
             self.users += len(self.currently_charging)
@@ -256,7 +258,7 @@ class Vessel(Agent):
         DRIVE = 1
         WAIT = 2
 
-    def __init__(self, unique_id, model, generated_by, path, ship_type, battery_size, power, combi, route_key,
+    def __init__(self, unique_id, model, generated_by, path, ship_type, battery_size, power, combi, route_key, speed,
                  location_offset=0):
         super().__init__(unique_id, model)
         # defined attributes
@@ -267,6 +269,7 @@ class Vessel(Agent):
         self.combi = combi
         self.power = power
         self.route_key = route_key
+        self.speed = speed  #type specific
 
         # secondary attributes
         self.generated_at_step = model.schedule.steps
@@ -294,7 +297,6 @@ class Vessel(Agent):
         self.remove_if_charged = False  # if True, a vessel should be removed from the model once fully charged
 
         self.removed_at_step = None
-        self.speed = 15000 / 60  # 15 5km/h translated into meter per min, diff speeds for diff ships possible
         self.step_time = 1  # One tick represents 1 minute
         self.hour = self.model.hour
 
