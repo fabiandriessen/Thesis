@@ -79,13 +79,13 @@ def second_stage_frlm(p, x_m, c, o, df_g, df_b, df_eq_fq):
         model += pulp.lpSum([flow_allocation[q, h] * df_b[h][q]] for h in df_g.reset_index().
                             loc[df_g.reset_index().q == q].h) <= 1
 
-    print(model)
+    # print(model)
 
     # solve
     model.solve()
 
     status = LpStatus[model.status]
-    print(status)
+    # print(status)
     # print(value(model.objective))
     # Values of decision variables at optimum
 

@@ -14,7 +14,7 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(r, p, c, x_m, additional_nodes=0, n=0, vis=False, o=24,
+def flow_refueling_location_model(r, p, scenario, additional_nodes=0, n=0, vis=False, o=24,
                                   random_data=False, load=1, seed=None):
     """
     Parameters
@@ -52,7 +52,16 @@ def flow_refueling_location_model(r, p, c, x_m, additional_nodes=0, n=0, vis=Fal
     seed:int
         Random seed to use for random data generation.
     """
-
+    if scenario == 0:
+        c = 2000
+        x_m = 5
+    elif scenario == 1:
+        c = 3333
+        x_m = 3
+    elif scenario == 2:
+        c = 10000
+        x_m = 1
+        
     G = pickle.load(open('data/network_cleaned_final.p', 'rb'))
     df_h = pickle.load(open("data/revised_cleaning_results/harbour_data_100.p", "rb"))
     df_ivs = pickle.load(open("data/revised_cleaning_results/ivs_exploded_100.p", "rb"))

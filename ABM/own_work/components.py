@@ -133,18 +133,18 @@ class ChargingStation(Infra):
                     to_charge.inline = False
 
     def update_usage(self):
+        if self.model.schedule.time >= 60*24:
+            self.steps_measuring += 1
+            if self.currently_charging:
+                self.users += len(self.currently_charging)
+            if self.line:
+                self.waiters += len(self.line)
 
-        self.steps_measuring += 1
-        if self.currently_charging:
-            self.users += len(self.currently_charging)
-        if self.line:
-            self.waiters += len(self.line)
+            if self.max_occupation != self.modules:
+                self.max_occupation = max(len(self.currently_charging), self.max_occupation)
 
-        if self.max_occupation != self.modules:
-            self.max_occupation = max(len(self.currently_charging), self.max_occupation)
-
-        if len(self.line) > self.max_line_l:
-            self.max_line_l = len(self.line)
+            if len(self.line) > self.max_line_l:
+                self.max_line_l = len(self.line)
 
     def step(self):
         self.evaluate_waiting_line()
@@ -192,17 +192,18 @@ class HarbourChargingStation(Infra):
                     to_charge.inline = False
 
     def update_usage(self):
-        self.steps_measuring += 1
-        if self.currently_charging:
-            self.users += len(self.currently_charging)
-        if self.line:
-            self.waiters += len(self.line)
+        if self.model.schedule.time >= 60 * 24:
+            self.steps_measuring += 1
+            if self.currently_charging:
+                self.users += len(self.currently_charging)
+            if self.line:
+                self.waiters += len(self.line)
 
-        if self.max_occupation != self.modules:
-            self.max_occupation = max(len(self.currently_charging), self.max_occupation)
+            if self.max_occupation != self.modules:
+                self.max_occupation = max(len(self.currently_charging), self.max_occupation)
 
-        if len(self.line) > self.max_line_l:
-            self.max_line_l = len(self.line)
+            if len(self.line) > self.max_line_l:
+                self.max_line_l = len(self.line)
 
     def step(self):
         self.evaluate_waiting_line()
