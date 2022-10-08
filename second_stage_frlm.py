@@ -79,7 +79,7 @@ def second_stage_frlm(p, x_m, c, o, df_g, df_b, df_eq_fq):
         model += pulp.lpSum([flow_allocation[q, h] * df_b[h][q]] for h in df_g.reset_index().
                             loc[df_g.reset_index().q == q].h) <= 1
 
-    # print(model)
+    print(model)
 
     # solve
     model.solve()
@@ -112,7 +112,7 @@ def second_stage_frlm(p, x_m, c, o, df_g, df_b, df_eq_fq):
             a = (re.sub('''["'_']''', "", key[16:35]).split(','))
             a = tuple([a[0], a[1], int(a[2])])
             non_zero_flows[a] = {'combinations': [], 'flows': []}
-
+    # sited = sum(optimal_flows.values())
     for key, item in optimal_flows.items():
         if item != 0:
             a = (re.sub('''["'_']''', "", key[16:35]).split(','))

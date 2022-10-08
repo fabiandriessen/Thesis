@@ -14,7 +14,7 @@ def create_key(o, d, r_v):
     return key1
 
 
-def flow_refueling_location_model(r, p, scenario, additional_nodes=0, n=0, vis=False, o=24,
+def flow_refueling_location_model(r, p, scenario_var, additional_nodes=0, n=0, vis=False, o=24,
                                   random_data=False, load=1, seed=None):
     """
     Parameters
@@ -52,16 +52,17 @@ def flow_refueling_location_model(r, p, scenario, additional_nodes=0, n=0, vis=F
     seed:int
         Random seed to use for random data generation.
     """
-    if scenario == 0:
+    if scenario_var == 0:
         c = 2000
         x_m = 5
-    elif scenario == 1:
+    elif scenario_var == 1:
         c = 3333
         x_m = 3
-    elif scenario == 2:
+    elif scenario_var == 2:
         c = 10000
         x_m = 1
-        
+        # no additional nodes necessary if higher than
+
     G = pickle.load(open('data/network_cleaned_final.p', 'rb'))
     df_h = pickle.load(open("data/revised_cleaning_results/harbour_data_100.p", "rb"))
     df_ivs = pickle.load(open("data/revised_cleaning_results/ivs_exploded_100.p", "rb"))
@@ -118,5 +119,4 @@ def flow_refueling_location_model(r, p, scenario, additional_nodes=0, n=0, vis=F
         visualize_placement(G, flows, optimal_facilities, non_zero_flows, df_h, paths, unused=True)
 
     return total_flow, fraction_captured_total, serviceable_fraction, served_fraction, optimal_facilities, \
-           non_zero_flows, add_nodes_used
-
+        non_zero_flows, add_nodes_used
