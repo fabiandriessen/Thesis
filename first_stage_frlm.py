@@ -96,7 +96,7 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
     for route_key, potential_locations in harbour_dict.items():
         h = []
         # create all possible station combinations on this path
-        for L in range(0, len(potential_locations) + 1):
+        for L in range(0, min(4, (len(potential_locations) + 1))):
             for k in itertools.combinations(potential_locations, (L + 1)):
                 h.append(k)
         # now add to dict:
