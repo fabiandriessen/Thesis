@@ -281,7 +281,7 @@ class Vessel(Agent):
         self.pos = generated_by.pos
         self.current_path_length = nx.dijkstra_path_length(self.model.G, self.path_ids[self.location_index],
                                                            self.path_ids[self.location_index + 1], weight='length_m')
-        print(self.unique_id,self.combi,self.ship_type,self.power,self.speed, self.route_key)
+        # print(self.unique_id,self.combi,self.ship_type,self.power,self.speed, self.route_key)
         self.inline = False  # initially False, True if vessel stands inline
 
         # default values
