@@ -1,6 +1,6 @@
 from flow_computation import flow_computation
 from random_vessel_generator import random_vessel_generator
-from first_stage_frlm import first_stage_frlm
+from first_stage_frlm_old import first_stage_frlm
 from second_stage_frlm import second_stage_frlm
 from generate_network_nodes import generate_network
 from visualize_placement import visualize_placement
