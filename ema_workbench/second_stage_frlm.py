@@ -1,4 +1,5 @@
 from pulp import *
+import pulp as pl
 import re
 import pickle
 
@@ -36,6 +37,8 @@ def second_stage_frlm(p, x_m, c, o, df_g, df_b, df_eq_fq):
     # define y_qh for each q and each h, and restrict between 0 and 1
     # constraint 1.5 already incorporated
     # create list of index to be able to loop over double index
+    solver_name = 'GUROBI_CMD'
+    solver = pl.getSolver(solver_name, threads=1)
 
     # daily capacity in kWh
     daily_cap = o*c
@@ -82,7 +85,7 @@ def second_stage_frlm(p, x_m, c, o, df_g, df_b, df_eq_fq):
     # print(model)
 
     # solve
-    model.solve()
+    model.solve(solver)
 
     status = LpStatus[model.status]
     # print(status)

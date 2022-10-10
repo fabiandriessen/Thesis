@@ -40,7 +40,7 @@ def second_stage_frlm(p, x_m, c, o, df_g, df_b, df_eq_fq):
     # create list of index to be able to loop over double index
 
     solver_name = 'GUROBI_CMD'
-    solver = pl.getSolver(solver_name, threads=8)
+    solver = pl.getSolver(solver_name, threads=20)
 
     # daily capacity in kWh
     daily_cap = o*c
