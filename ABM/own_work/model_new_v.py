@@ -156,7 +156,7 @@ class VesselElectrification(Model):
 
     step_time = 1
 
-    def __init__(self, c, r, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
+    def __init__(self, c, r, run, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
         self.seed = seed
         self.schedule = BaseScheduler(self)
         self.running = True
@@ -164,9 +164,9 @@ class VesselElectrification(Model):
         self.space = None
         self.G = pickle.load(open('data/network.p', 'rb'))  # the actual network as generated inc. any added nodes
         # self.ivs_data = input_df
-        self.ivs_data = pickle.load(open('data/df_random_batch.p', 'rb'))  # random dataset to base generation on
+        self.ivs_data = pickle.load(open('data/inputs/df_random_batch' + str(run) + '.p', 'rb'))  # random dataset to base generation on
         # self.data = df_abm
-        self.data = pd.read_csv('data/df_abm_batch.csv')  # all information regarding different links, harbours, etc.
+        self.data = pd.read_csv('data/inputs/df_abm_batch' + str(run) + '.csv')  # all information regarding different links, harbours, etc.
         self.intermediate_nodes = []
         self.harbours = []
         self.harbours_with_charging = []
@@ -181,7 +181,7 @@ class VesselElectrification(Model):
         self.type_engine_power = pickle.load(open('data/flow_comp_factors_unscaled.p', 'rb'))
         self.type_loaded_speed = pickle.load(open('data/types_loaded_speed.p', 'rb'))
         # self.optimal_flows = opt_flows
-        self.optimal_flows = pickle.load(open('data/non_zero_flows_batch.p', 'rb'))
+        self.optimal_flows = pickle.load(open('data/inputs/non_zero_flows_batch' + str(run) + '.p', 'rb'))
 
         self.agent_data = {'id': [],
                            'route': [],

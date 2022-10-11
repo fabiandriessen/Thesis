@@ -25,27 +25,29 @@ df_random = pickle.load(open('data/df_random.p', 'rb'))
 
 
 for i, row in df_9scenarios.iterrows():
+    #
+    #     df_abm = create_input_data_abm(G, paths, row['non_zero_flows'], row['optimal_facilities'])
+    #     # configure df random for abm
+    #     df_random['key'] = df_random.apply(lambda x: create_key(x.origin, x.destination, x.route_v), axis=1)
+    #     df_random = df_random.loc[df_random.key.isin(row['non_zero_flows'].keys())]
+    #     df_random = df_random.loc[df_random.trip_count != 0]
+    #
+    #     pickle.dump(df_random, open('data/inputs/df_random_batch' + str(i) + '.p', 'wb'))
+    #     df_abm.to_csv('data/inputs/df_abm_batch' + str(i) + '.csv')
+    #     pickle.dump(row['non_zero_flows'], open('data/inputs/non_zero_flows_batch' + str(i) + '.p', 'wb'))7
+    # print(i)
+    if i>6:
+        # print(i)
+        params = {'c': row['c'], 'r': row['r'], 'run': i, 'seed': seeds}
 
-    df_abm = create_input_data_abm(G, paths, row['non_zero_flows'], row['optimal_facilities'])
-    # configure df random for abm
-    df_random['key'] = df_random.apply(lambda x: create_key(x.origin, x.destination, x.route_v), axis=1)
-    df_random = df_random.loc[df_random.key.isin(row['non_zero_flows'].keys())]
-    df_random = df_random.loc[df_random.trip_count != 0]
+        if __name__ == '__main__':
+            freeze_support()
+            result = batch_run(VesselElectrification,
+                               iterations=1,
+                               parameters=params,
+                               data_collection_period=(60 * 24 * 8),
+                               max_steps=(60 * 24 * 8),
+                               number_processes=15,
+                               display_progress=True)
 
-    pickle.dump(df_random, open('data/df_random_batch.p', 'wb'))
-    df_abm.to_csv('data/df_abm_batch.csv')
-    pickle.dump(row['non_zero_flows'], open('data/non_zero_flows_batch.p', 'wb'))
-
-    params = {'c': row['c'], 'r': row['r'], 'seed': seeds}
-
-    if __name__ == '__main__':
-        freeze_support()
-        result = batch_run(VesselElectrification,
-                           iterations=1,
-                           parameters=params,
-                           data_collection_period=(60 * 24 * 2),
-                           max_steps=(60 * 24 * 2),
-                           number_processes=20,
-                           display_progress=True)
-
-        pickle.dump(result, open('data/batch_9scenarios'+str(row['r'])+str(row['c'])+str(row['m'])+'.p', 'wb'))
+            pickle.dump(result, open('data/batch_9scenarios'+str(row['r'])+str(row['c'])+str(row['m'])+'.p', 'wb'))
