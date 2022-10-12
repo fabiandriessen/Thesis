@@ -13,7 +13,7 @@ def create_key(o, d, r_v):
 
 
 pick_from = np.linspace(0, 1000000, 1000001)
-seeds = np.random.choice(a=pick_from, size=1, replace=False)
+seeds = np.random.choice(a=pick_from, size=100, replace=False)
 seeds = list(seeds)
 seeds = [round(i) for i in seeds]
 
@@ -46,7 +46,7 @@ for i, row in df_9scenarios.iterrows():
                            parameters=params,
                            data_collection_period=(60 * 24 * 8),
                            max_steps=(60 * 24 * 8),
-                           number_processes=1,
+                           number_processes=20,
                            display_progress=True)
 
         pickle.dump(result, open('results/batch_9scenarios'+str(row['r'])+str(row['c'])+str(row['m'])+'.p', 'wb'))
