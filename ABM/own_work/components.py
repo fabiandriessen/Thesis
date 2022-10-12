@@ -48,6 +48,9 @@ class Infra(Agent):
             vessel.model.agent_data['battery_size'].append(vessel.battery_size)
             vessel.model.agent_data['combi'].append(vessel.combi)
             vessel.model.agent_data['generation_hour'].append(vessel.hour)
+            vessel.model.agent_data['total_charged'].append(vessel.total_charged)
+            vessel.model.agent_data['waited_at'].append(vessel.waited_at)
+
 
         self.model.schedule.remove(vessel)
         self.vessel_removed_toggle = not self.vessel_removed_toggle
@@ -292,6 +295,7 @@ class Vessel(Agent):
         self.time_waited = 0  # variable to keep track the passed waiting time
         self.time_inline = 0  # total time spent waiting at any stations
         self.time_driving = 0  # total time driving
+        self.total_charged = 0
         self.charged_at_dest = 0  # charging time before removed once dest is reached
         self.waited_at = {}  # dict with unique ID where vessel had to wait as a key, and the value is the time spent
         self.remove_if_charged = False  # if True, a vessel should be removed from the model once fully charged
@@ -317,13 +321,13 @@ class Vessel(Agent):
         """
         # update current path length and pos
         # if self.unique_id == 1:
-        #     print(self)
+            # print(self)
 
         if self.state == Vessel.State.WAIT:
-            self.time_waited += 1
             if self.inline:
                 self.time_inline += 1
             else:
+                self.time_waited += 1
                 self.waiting_time = max(self.waiting_time - 1, 0)
                 self.waited_at[self.location.unique_id] += 1
                 if self.waiting_time == 0:
@@ -411,6 +415,7 @@ class Vessel(Agent):
     def get_charging_time(self, cs):
         charge_needed = self.battery_size - self.charge  # assumption: always charged 100%
         charging_time = math.ceil((charge_needed / cs.charging_speed) * 60)  # times 60 to convert from hours to minutes
+
         # check if vessel can charge or joins line
         if cs.line:
             inline = True
@@ -419,11 +424,13 @@ class Vessel(Agent):
             if cs.modules > len(cs.currently_charging):
                 inline = False
                 cs.currently_charging.append(self)
+
             else:
                 inline = True
                 cs.line.append(self)
 
         # set state, set and store waiting time
+        self.total_charged += charging_time
         self.state = Vessel.State.WAIT
         self.waiting_time = charging_time
         self.inline = inline

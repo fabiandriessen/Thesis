@@ -191,7 +191,9 @@ class VesselElectrification(Model):
                            'travel_time': [],
                            'time_in_line': [],
                            'time_charging': [],
-                           'battery_size': []}  # new dict to store data of removed agents, before removing
+                           'battery_size': [],
+                           'waited_at': [],
+                           'total_charged': []}  # new dict to store data of removed agents, before removing
 
         self.datacollector = DataCollector(
             model_reporters={"data_completed_trips": "agent_data"},
@@ -316,7 +318,8 @@ class VesselElectrification(Model):
                     generated_by = self.schedule._agents[generated_at]  # store which agent generated this vessel
                     power = self.type_engine_power[ship_type[0]]  # look up engine power based on type
                     speed = (3.6 * 1000 * self.type_loaded_speed[ship_type[0]]) / 60  #from m/s to km/minute
-                    battery_size = math.ceil((self.range / speed) * power)  # equal r assumed
+
+                    battery_size = math.ceil((self.range / (speed*60)) * power)  # equal r assumed
 
                     # determine combination that this vessel will use
                     if len(self.optimal_flows[row['key']]['combinations']) == 1:

@@ -46,8 +46,7 @@ for i, row in df_9scenarios.iterrows():
     df_random = df_random.loc[df_random.key.isin(row['non_zero_flows'].keys())]
     df_random = df_random.loc[df_random.trip_count != 0]
 
-    sim_model = VesselElectrification(input_df=df_random, df_abm=df_abm,
-                                      opt_flows=row['non_zero_flows'], c=row['c'], r=row['r'], seed=seed)
+    sim_model = VesselElectrification(c=row['c'], r=row['r'], run=i, seed=seed)
 
     # Check if the seed is set
     print("SEED " + str(sim_model._seed))

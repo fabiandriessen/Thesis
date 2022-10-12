@@ -13,7 +13,7 @@ def create_key(o, d, r_v):
 
 
 pick_from = np.linspace(0, 1000000, 1000001)
-seeds = np.random.choice(a=pick_from, size=100, replace=False)
+seeds = np.random.choice(a=pick_from, size=1, replace=False)
 seeds = list(seeds)
 seeds = [round(i) for i in seeds]
 
@@ -36,18 +36,17 @@ for i, row in df_9scenarios.iterrows():
     #     df_abm.to_csv('data/inputs/df_abm_batch' + str(i) + '.csv')
     #     pickle.dump(row['non_zero_flows'], open('data/inputs/non_zero_flows_batch' + str(i) + '.p', 'wb'))7
     # print(i)
-    if i>6:
-        # print(i)
-        params = {'c': row['c'], 'r': row['r'], 'run': i, 'seed': seeds}
+    # print(i)
+    params = {'c': row['c'], 'r': row['r'], 'run': i, 'seed': seeds}
 
-        if __name__ == '__main__':
-            freeze_support()
-            result = batch_run(VesselElectrification,
-                               iterations=1,
-                               parameters=params,
-                               data_collection_period=(60 * 24 * 8),
-                               max_steps=(60 * 24 * 8),
-                               number_processes=15,
-                               display_progress=True)
+    if __name__ == '__main__':
+        freeze_support()
+        result = batch_run(VesselElectrification,
+                           iterations=1,
+                           parameters=params,
+                           data_collection_period=(60 * 24 * 8),
+                           max_steps=(60 * 24 * 8),
+                           number_processes=1,
+                           display_progress=True)
 
-            pickle.dump(result, open('data/batch_9scenarios'+str(row['r'])+str(row['c'])+str(row['m'])+'.p', 'wb'))
+        pickle.dump(result, open('results/batch_9scenarios'+str(row['r'])+str(row['c'])+str(row['m'])+'.p', 'wb'))
