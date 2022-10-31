@@ -143,11 +143,11 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
                         current_range = r
 
                     # final dest reached? (e.g. dest if refuel station at dest, otherwise origin)
-                    if (current_pos in combi) and (current_pos == harbours_on_route[-1]):
+                    if (current_pos in combi) and (current_pos == paths[route_key][-1]):
                         feasible_combinations[route_key].append(combi)
                         break
                     # else: maybe feasible, double back route to check!
-                    elif current_pos == harbours_on_route[0]:
+                    elif current_pos == paths[route_key][0]:
                         feasible_combinations[route_key].append(combi)
                         break
                 else:
@@ -197,7 +197,7 @@ def first_stage_frlm(r, G, OD, paths, path_lengths, df_h, additional_nodes=None)
                 #     dict_g[node] = []
                 # print('Node:', node, 'combination:', combination)
                 if node in combination:
-                    if (node == harbour_dict[route_key][0]) or (node == harbour_dict[route_key][-1]):
+                    if (node == paths[route_key][0]) or (node == paths[route_key][-1]):
                         dict_g[node].append(1)
                     else:
                         # changed compared to original CFRLM: no round trip assumed thus 1 instead of 2
