@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import networkx as nx
+from mpl_toolkits.basemap import Basemap
+import pandas as pd
 # import osmnx as ox
 import geopandas as gpd
 # ox.config(log_console=True, use_cache=True)
@@ -25,9 +27,11 @@ def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, 
         This dataframe as generated in revised_network_cleaning.ipynb
         """
     # create pos dict
-    pos_dict = {}
-    for node in G.nodes:
-        pos_dict[node] = (G.nodes[node]['X'], G.nodes[node]['Y'])
+    df_nodes = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
+    df_nodes['n'] = df_nodes.index
+    # pos_dict = {}
+    # for node in G.nodes:
+    #     pos_dict[node] = (G.nodes[node]['X'], G.nodes[node]['Y'])
 
     # Define new graph H with only nodes and edges in available routes
     node_list = []
@@ -35,7 +39,7 @@ def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, 
     for key, items in non_zero_flows.items():
         node_list += paths[key]
 
-    img = plt.imread("data/NL_map.png")
+    # img = plt.imread("data/NL_map.png")
     # sub graph with supported nodes, only keep unique nodes
     node_list = list(set(node_list))
     H = G.subgraph(node_list)
@@ -60,8 +64,26 @@ def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, 
     # fig, ax = plt.subplots(dpi=200, figsize=(2048/200, 1817/200))
     # fig, ax = plt.subplots(dpi=200, figsize=(3.778074*2*0.8, 3.9834440000000058*2))
     fig, ax = plt.subplots(dpi=200)
+    m = Basemap(projection='merc',
+                llcrnrlon=3.31497114423,
+                llcrnrlat=50.803721015,
+                urcrnrlon=7.09205325687,
+                urcrnrlat=53.5104033474,
+                lat_0=(3.31497114423 + 7.09205325687) / 2,
+                lon_0=(50.8 + 53.5104033474) / 2,
+                resolution='i'
+                )
+    m.drawmapboundary(fill_color='aqua')
+    m.fillcontinents(color='#D3D3D3', lake_color='aqua')
+    m.drawcoastlines()
+    m.drawcountries()
 
+    pos_dict = {}
+    mx, my = m(df_nodes.X.values, df_nodes.Y.values)
+    for count, elem in enumerate(df_nodes.n):
+        pos_dict[elem] = (mx[count], my[count])
     # all edges related to route
+
     nx.draw_networkx_edges(G, pos_dict, width=2, ax=ax, label='Unsupported paths')
     nx.draw_networkx_edges(H, pos=pos_dict, width=2, edge_color='red', ax=ax, label='Supported paths')
 
@@ -79,8 +101,8 @@ def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, 
                                label='Unused locations')
     plt.legend(fontsize=6)
 
-    x1, x2, y1, y2 = 3.566619, 6.944693, 50.860830, 53.444274
-    z = 0.53
-    ax.imshow(img, extent=[x1-z, x2+z, y1-z+0.3, y2+z-0.3])
+    # x1, x2, y1, y2 = 3.566619, 6.944693, 50.860830, 53.444274
+    # z = 0.53
+    # ax.imshow(img, extent=[x1-z, x2+z, y1-z+0.3, y2+z-0.3])
     return H_fuel
 
