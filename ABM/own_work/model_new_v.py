@@ -78,7 +78,7 @@ def get_cs(agent):
 def get_cs_occupation(agent):
     if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
         if (agent.users > 0) and (agent.steps_measuring > 0):
-            avg_occupation = agent.users/agent.steps_measuring
+            avg_occupation = agent.users / agent.steps_measuring
             return avg_occupation
         else:
             return 0
@@ -94,7 +94,7 @@ def get_max_occupation(agent):
 def get_cs_waiting_line(agent):
     if isinstance(agent, ChargingStation) or isinstance(agent, HarbourChargingStation):
         if (agent.waiters > 0) and (agent.steps_measuring > 0):
-            avg_line_length = agent.waiters/agent.steps_measuring
+            avg_line_length = agent.waiters / agent.steps_measuring
             return avg_line_length
         else:
             return 0
@@ -156,17 +156,20 @@ class VesselElectrification(Model):
 
     step_time = 1
 
-    def __init__(self, c, r, run, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
+    def __init__(self, c, r, run, seed, x_max=500, y_max=500, x_min=0, y_min=0):
         self.seed = seed
+        np.random.seed = self.seed
         self.schedule = BaseScheduler(self)
         self.running = True
         self.path_ids_dict = pickle.load(open('data/paths.p', 'rb'))  # paths for the network inc. any added nodes
         self.space = None
         self.G = pickle.load(open('data/network.p', 'rb'))  # the actual network as generated inc. any added nodes
         # self.ivs_data = input_df
-        self.ivs_data = pickle.load(open('data/inputs/df_random_batch' + str(run) + '.p', 'rb'))  # random dataset to base generation on
+        self.ivs_data = pickle.load(
+            open('data/inputs/df_random_batch' + str(run) + '.p', 'rb'))  # random dataset to base generation on
         # self.data = df_abm
-        self.data = pd.read_csv('data/inputs/df_abm_batch' + str(run) + '.csv')  # all information regarding different links, harbours, etc.
+        self.data = pd.read_csv(
+            'data/inputs/df_abm_batch' + str(run) + '.csv')  # all information regarding different links, harbours, etc.
         self.intermediate_nodes = []
         self.harbours = []
         self.harbours_with_charging = []
@@ -175,9 +178,9 @@ class VesselElectrification(Model):
         self.inserted_nodes = []
         self.hour = 0
         self.charging_station_capacity = c  # max charging power in KWh
-        self.range = r*1000  # range in meters
+        self.range = r * 1000  # range in meters
 
-        self.path_lengths = pickle.load(open('data/path_lengths_ship_specific_routes.p', 'rb'))
+        # self.path_lengths = pickle.load(open('data/path_lengths_ship_specific_routes.p', 'rb'))
         self.type_engine_power = pickle.load(open('data/flow_comp_factors_unscaled.p', 'rb'))
         self.type_loaded_speed = pickle.load(open('data/types_loaded_speed.p', 'rb'))
         # self.optimal_flows = opt_flows
@@ -287,6 +290,8 @@ class VesselElectrification(Model):
         """
         self.schedule.step()
         self.datacollector.collect(self)
+        # if self.schedule.time == 1:
+        #     print("evaluate now:", self.range, self.charging_station_capacity, self.data.charging_stations.max(), self.seed)
         # update hour
         if self.schedule.time % 59:
             if (self.hour + 1) < 24:
@@ -317,16 +322,18 @@ class VesselElectrification(Model):
                     generated_at = path[0]  # store origin
                     generated_by = self.schedule._agents[generated_at]  # store which agent generated this vessel
                     power = self.type_engine_power[ship_type[0]]  # look up engine power based on type
-                    speed = (3.6 * 1000 * self.type_loaded_speed[ship_type[0]]) / 60  #from m/s to km/minute
+                    speed = (3.6 * 1000 * self.type_loaded_speed[ship_type[0]]) / 60  # from m/s to km/minute
 
-                    battery_size = math.ceil((self.range / (speed*60)) * power)  # equal r assumed
+                    battery_size = math.ceil((self.range / (speed * 60)) * power)  # equal r assumed
 
                     # determine combination that this vessel will use
                     if len(self.optimal_flows[row['key']]['combinations']) == 1:
                         combi = self.optimal_flows[row['key']]['combinations'][0]  # take first if only one option
                     else:
                         pkey = self.optimal_flows[row['key']]['flows']  # else, randomly draw as previously
+                        pkey = [i if i > 10e-7 else 0 for i in pkey]
                         pkey = [i / sum(pkey) for i in pkey]
+
                         pick = np.random.choice(a=np.arange(len(self.optimal_flows[row['key']]['combinations'])),
                                                 size=1, replace=False, p=pkey)
                         combi = self.optimal_flows[row['key']]['combinations'][pick.item()]

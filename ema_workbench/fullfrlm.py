@@ -78,8 +78,12 @@ def flow_refueling_location_model(r, p, scenario_var, additional_nodes=0, n=0, v
         flows = flow_computation(df_random, r, path_lengths)
 
     inserted = []
+    if additional_nodes == 4:
+        inserted = additional_intersections(G, n)
+        G, paths, inserted2 = generate_network(G, paths, n)
+        inserted += inserted2
 
-    if additional_nodes == 3:
+    elif additional_nodes == 3:
         G, paths, inserted = generate_network(G, paths, n)
         inserted += ['8863114', '8864435', '8865887', '8861447', '8864526', '8860631', '8863272', '8863762', '8861611',
                      '8860623', '8864952', '8864915', '8860563', '8860918', '8862907', '8865462', '8860579', '8861863',
