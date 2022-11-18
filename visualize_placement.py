@@ -52,7 +52,7 @@ def visualize_placement(G, OD, optimal_facilities, non_zero_flows, df_h, paths, 
 
     # fill lists
     for key, number_of_stations in optimal_facilities.items():
-        if number_of_stations > 0:
+        if number_of_stations > 10e-10:
             fuel_stations.append(key)
             G.nodes[key]['number_CS'] = number_of_stations
         else:

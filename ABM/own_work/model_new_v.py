@@ -161,9 +161,9 @@ class VesselElectrification(Model):
         np.random.seed = self.seed
         self.schedule = BaseScheduler(self)
         self.running = True
-        self.path_ids_dict = pickle.load(open('data/paths.p', 'rb'))  # paths for the network inc. any added nodes
+        self.path_ids_dict = pickle.load(open('data/final_paths.p', 'rb'))  # paths for the network inc. any added nodes
         self.space = None
-        self.G = pickle.load(open('data/network.p', 'rb'))  # the actual network as generated inc. any added nodes
+        self.G = pickle.load(open('data/network_cleaned_final.p', 'rb'))  # the actual network as generated inc. any added nodes
         # self.ivs_data = input_df
         self.ivs_data = pickle.load(
             open('data/inputs/df_random_batch' + str(run) + '.p', 'rb'))  # random dataset to base generation on

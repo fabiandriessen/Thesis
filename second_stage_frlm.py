@@ -125,6 +125,7 @@ def second_stage_frlm(p, x_m, c, o, df_g, df_b, df_eq_fq):
             b = key[40:-3].split("',_'")
             if len(b) == 1:
                 b[0] = re.sub("[']", "", b[0])
+
             non_zero_flows[a]['combinations'].append(b)
             non_zero_flows[a]['flows'].append(item)
 
